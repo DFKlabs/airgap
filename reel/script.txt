@@ -1,0 +1,7 @@
+This sound just carried a text message. No internet involved.
+Here's how you turn data into sound… and how the phone knows nothing got lost.
+It's called frequency-shift keying. Each pitch stands for a number. Use sixteen pitches, and every single tone carries four bits.
+Each tone plays for seventy milliseconds. Then silence, so echoes from the room fade before the next one.
+But how does the receiver know a message is starting? A preamble. A fixed pattern it's always listening for.
+And the genius part: a checksum. A small number calculated from the whole message. If one tone is misheard, the numbers don't match… and the message is rejected.
+Same idea as old dial-up modems. Just in your pocket.

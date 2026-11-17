@@ -1,0 +1,1302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<title>airgap — text you can hear</title>
+<meta name="description" content="Send a message from one phone to another with sound. Flight mode on: no internet, no server, no account. One page, no dependencies. By DFK Labs.">
+<meta name="theme-color" content="#050505">
+<meta property="og:title" content="airgap — send text over sound">
+<meta property="og:description" content="Two phones, flight mode on. One chirps, the other reads the message and chirps back that it heard it. Morse too. No internet, no server, no account.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23050505'/%3E%3Cg fill='none' stroke='%232563eb' stroke-width='5' stroke-linecap='round'%3E%3Cpath d='M22 22a14 14 0 0 1 0 20'/%3E%3Cpath d='M31 15a24 24 0 0 1 0 34'/%3E%3Cpath d='M40 8a34 34 0 0 1 0 48'/%3E%3C/g%3E%3Ccircle cx='14' cy='32' r='5' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="/fonts/motion.css">
+<style>
+:root{--bg:#050505;--panel:#0f1115;--panel2:#16191e;--panel3:#1d2128;--line:rgba(255,255,255,.08);--ink:#f3f4f6;--dim:#9ca3af;--mute:#6b7280;--blue:#2563eb;--blue2:#60a5fa;--ok:#34d399;--bad:#f87171;
+  --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--spring:cubic-bezier(.2,.9,.3,1.2)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+body{--navh:48px;min-height:100dvh}
+.stage{display:flex;justify-content:center}
+.app{position:relative;width:100%;max-width:560px;height:calc(100dvh - var(--navh));display:flex;flex-direction:column;background:var(--bg)}
+.app::before{content:"";position:absolute;inset:0;background:radial-gradient(600px 380px at 50% -10%,rgba(37,99,235,.16),transparent 70%);pointer-events:none}
+button{font:inherit;color:inherit;cursor:pointer}
+
+/* header */
+.top{position:relative;z-index:2;display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;border-bottom:1px solid var(--line);background:rgba(5,5,5,.72);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.avatar{width:40px;height:40px;flex:none}
+.who{flex:1;min-width:0}
+.who b{display:block;font:700 17px/1.2 var(--sans);letter-spacing:-.01em}
+.who span{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who span i{width:7px;height:7px;border-radius:50%;background:var(--mute);flex:none}
+.who span.on i{background:var(--ok);box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:pulse 1.6s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.pill{display:flex;align-items:center;gap:7px;height:36px;padding:0 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);font-weight:600;font-size:14px;transition:background .2s,border-color .2s}
+.pill svg{width:16px;height:16px}
+.pill.on{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.4);color:var(--ok)}
+.icon{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);display:grid;place-items:center}
+.icon svg{width:17px;height:17px}
+
+/* thread */
+#thread{position:relative;flex:1;overflow-y:auto;padding:16px 12px 8px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth}
+.day{align-self:center;margin:10px 0 8px;font:600 11px var(--mono);letter-spacing:.1em;color:var(--mute);text-transform:uppercase}
+.empty{margin:auto;max-width:300px;text-align:center;display:grid;gap:14px;justify-items:center;color:var(--dim);font-size:14.5px;line-height:1.5}
+.empty .wave{width:72px;height:72px}
+.empty b{color:var(--ink);font-size:17px}
+.empty ol{text-align:left;padding-left:20px;display:grid;gap:6px}
+.row{display:flex;flex-direction:column;max-width:80%;animation:pop .32s var(--spring)}
+.row.me{align-self:flex-end;align-items:flex-end}
+.row.them{align-self:flex-start;align-items:flex-start}
+.row + .row.me,.row + .row.them{margin-top:2px}
+.row.me + .row.them,.row.them + .row.me{margin-top:10px}
+.bubble{position:relative;padding:9px 13px 7px;border-radius:20px;font-size:16.5px;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere;overflow:hidden;user-select:text;-webkit-user-select:text}
+.me .bubble{background:var(--blue);border-bottom-right-radius:6px}
+.them .bubble{background:var(--panel3);border-bottom-left-radius:6px}
+.bubble a{color:inherit}
+.bubble .code{display:block;margin-top:3px;font:500 11px/1.4 var(--mono);letter-spacing:.04em;opacity:.65;word-break:break-all}
+.bubble .prog{position:absolute;left:0;bottom:0;height:3px;background:rgba(255,255,255,.75);transform-origin:left;transform:scaleX(0)}
+.meta{display:flex;align-items:center;gap:6px;margin:3px 6px 0;font:500 11px var(--sans);color:var(--mute)}
+.meta .tag{font:600 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;border-radius:5px;background:var(--panel2);color:var(--dim)}
+.meta .tick{display:inline-flex;align-items:center;gap:3px}
+.meta .tick svg{width:15px;height:15px}
+.meta .heard{color:var(--ok)}
+.meta button{border:0;background:none;color:var(--blue2);font:600 11px var(--sans);padding:2px 0}
+.typing .bubble{font-family:var(--mono);letter-spacing:.04em}
+.typing .bubble::after{content:"▍";animation:blink 1s steps(1) infinite;color:var(--ok)}
+@keyframes blink{50%{opacity:0}}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+
+/* banner */
+.banner{margin:0 12px 6px;padding:10px 12px;border-radius:14px;border:1px solid rgba(248,113,113,.35);background:rgba(248,113,113,.08);font-size:13.5px;line-height:1.45;color:var(--ink);display:flex;gap:10px;align-items:flex-start}
+.banner p{flex:1}
+.banner button{border:0;background:none;color:var(--dim);font-size:18px;line-height:1;padding:0 2px}
+
+/* composer */
+.bottom{position:relative;z-index:2;padding:8px 10px calc(env(safe-area-inset-bottom) + 10px);border-top:1px solid var(--line);background:rgba(5,5,5,.8);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.ear{display:flex;align-items:center;gap:10px;height:22px;padding:0 4px;color:var(--mute);font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.ear canvas{flex:1 1 0;width:0;height:22px;min-width:0}
+.ear b{color:var(--dim);font-weight:600;min-width:52px;text-align:right}
+.seg{display:inline-grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:11px;background:var(--panel2);border:1px solid var(--line);justify-self:start}
+.seg button{border:0;background:none;padding:5px 14px;border-radius:8px;font:600 13px var(--sans);color:var(--dim);transition:background .2s,color .2s}
+.seg button[aria-pressed="true"]{background:var(--panel3);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.bar{display:flex;align-items:flex-end;gap:8px}
+.field{flex:1;min-width:0;display:flex;flex-direction:column;border-radius:22px;background:var(--panel2);border:1px solid var(--line);transition:border-color .2s}
+.field:focus-within{border-color:rgba(96,165,250,.5)}
+textarea{display:block;width:100%;resize:none;max-height:140px;background:none;border:0;outline:none;color:var(--ink);font:400 16.5px/1.35 var(--sans);padding:10px 14px 2px}
+.hint{display:flex;justify-content:space-between;gap:8px;padding:0 14px 7px;font:500 10.5px var(--mono);color:var(--mute);letter-spacing:.04em;white-space:nowrap;overflow:hidden}
+.hint span:last-child{overflow:hidden;text-overflow:ellipsis}
+.hint .over{color:var(--bad)}
+.send{position:relative;flex:none;width:46px;height:46px;border-radius:50%;border:0;background:var(--blue);display:grid;place-items:center;box-shadow:0 8px 24px -8px rgba(37,99,235,.9);transition:transform .15s,opacity .2s}
+.send:active{transform:scale(.92)}
+.send:disabled{opacity:.35;box-shadow:none}
+.send svg{width:22px;height:22px}
+.send.busy svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:10;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s}
+.sheet.open{opacity:1;pointer-events:auto}
+.sheet > div{width:100%;max-width:560px;max-height:86dvh;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;padding:10px 18px calc(env(safe-area-inset-bottom) + 18px);transform:translateY(30px);transition:transform .3s var(--spring);display:grid;gap:16px}
+.sheet.open > div{transform:none}
+.grab{justify-self:center;width:40px;height:5px;border-radius:3px;background:var(--panel3)}
+.sheet h2{font:700 20px var(--sans);letter-spacing:-.01em}
+.sheet p{color:var(--dim);font-size:14.5px;line-height:1.55}
+.sheet code{font:500 12.5px var(--mono);color:var(--blue2)}
+.group{border-radius:16px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;font-size:15px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left}
+.item:first-child{border-top:0}
+.item small{display:block;color:var(--mute);font-size:12.5px;margin-top:2px}
+.item.danger{color:var(--bad)}
+.switch{position:relative;width:46px;height:28px;flex:none;border-radius:999px;background:var(--panel3);transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ink);transition:transform .25s var(--spring)}
+[aria-checked="true"] .switch{background:var(--ok)}
+[aria-checked="true"] .switch::after{transform:translateX(18px)}
+.foot{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font:500 11px var(--mono);letter-spacing:.12em;color:var(--mute);text-transform:uppercase}
+.foot a{color:var(--mute);text-decoration:none}
+.dfk{display:inline-grid;place-items:center;border:2px solid var(--ink);color:var(--ink);font:900 11px var(--sans);letter-spacing:0;padding:1px 5px;box-shadow:3px 3px 0 var(--blue)}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 70px);z-index:20;transform:translate(-50%,-8px);background:var(--panel3);border:1px solid var(--line);border-radius:999px;padding:9px 15px;font-size:14px;font-weight:600;opacity:0;transition:opacity .2s,transform .3s var(--spring);pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* the little honest line, the pieces, the waterfall, the lab */
+.note{margin:0 12px 6px;font-size:12px;line-height:1.45;color:var(--mute);text-align:center}
+.pieces{display:flex;flex-wrap:wrap;gap:3px;margin:4px 6px 0}
+.pieces i{width:12px;height:12px;border-radius:3px;background:var(--panel3);border:1px solid var(--line);transition:background .25s,transform .25s var(--spring)}
+.pieces i.p1{background:var(--blue2);border-color:transparent}
+.pieces i.p2{background:var(--ok);border-color:transparent}
+.pieces i.new{transform:scale(1.25)}
+.details{display:none;margin:4px 6px 0;padding:8px 10px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font:500 11.5px/1.5 var(--mono);color:var(--dim);max-width:280px}
+.row.open .details{display:block}
+.details b{color:var(--ink);font-weight:600}
+.details .legend{display:flex;gap:10px;margin-top:4px;flex-wrap:wrap}
+.details .legend span{display:inline-flex;align-items:center;gap:4px}
+.details .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.bubble{cursor:pointer}
+.ear canvas{border-radius:6px;background:#0a0c10}
+.lab{display:grid;gap:12px}
+.lab input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:11px 13px;color:var(--ink);font:500 17px var(--sans);outline:none}
+.lab input:focus{border-color:rgba(96,165,250,.5)}
+.step{display:grid;gap:7px}
+.step h3{font:700 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--blue2)}
+.step p{font-size:13.5px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{display:grid;justify-items:center;gap:1px;min-width:34px;padding:5px 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);font:600 13px var(--mono);color:var(--ink);transition:background .15s,border-color .15s,transform .15s}
+.chip small{font:500 9.5px var(--mono);color:var(--mute)}
+.chip.pre{border-color:rgba(96,165,250,.35)}
+.chip.on{background:var(--blue);border-color:var(--blue);transform:translateY(-2px)}
+.chip.on small{color:var(--ink)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{height:40px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font:600 14px var(--sans)}
+.btn.primary{background:var(--blue);border-color:var(--blue)}
+.item select{background:var(--panel3);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:6px 8px;font:500 14px var(--sans)}
+.empty a,.empty button.link{color:var(--blue2);background:none;border:0;font:600 14.5px var(--sans);text-decoration:underline;text-underline-offset:3px}
+/* a computer: the chat on the left, the sound and the lab on the right */
+.side{display:none}
+@media (min-width:980px){
+  body{background:radial-gradient(900px 600px at 70% -10%,rgba(37,99,235,.12),transparent 70%),var(--bg)}
+  .app{max-width:460px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  .app::before{display:none}
+  .bottom .ear{display:none!important}
+  #labBtn,#labFromSheet{display:none}
+  .side{display:flex;flex-direction:column;gap:16px;flex:1;max-width:780px;height:calc(100dvh - var(--navh));overflow-y:auto;padding:22px 24px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px 20px;display:grid;gap:12px}
+  .panel h2{font:700 19px var(--sans);letter-spacing:-.01em}
+  .panelHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .side .grab{display:none}
+  .side .lab{gap:14px}
+  .wf{position:relative}
+  .wf canvas{display:block;width:100%;height:210px;border-radius:14px;background:#0a0c10}
+  .axis{position:absolute;top:6px;bottom:6px;left:10px;display:flex;flex-direction:column;justify-content:space-between;font:500 10px var(--mono);color:var(--mute);pointer-events:none}
+  .wfHint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:0 40px;font-size:14px;color:var(--dim);pointer-events:none}
+  .small{font-size:13px;line-height:1.55;color:var(--mute)}
+  .center{text-align:center}
+  .small b{color:var(--dim);font-family:var(--mono);font-weight:500}
+  .top{padding-top:14px}
+}
+/* DFK Labs: the site bar above and the footer below, as on every dfklabs.com page */
+.dfk-logo{display:inline-block;border:2px solid var(--ink);padding:1px 6px;font:800 13px/1.2 Archivo,"Arial Black",Helvetica,sans-serif;letter-spacing:-.5px;color:var(--ink);background:var(--bg);box-shadow:3px 3px 0 var(--blue);transition:transform .18s cubic-bezier(.2,.7,.3,1),box-shadow .18s cubic-bezier(.2,.7,.3,1)}
+a:hover>.dfk-logo{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--blue)}
+.site{position:relative;z-index:5;height:var(--navh);border-bottom:1px solid var(--line);background:rgba(5,5,5,.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.site-in{max-width:1280px;height:100%;margin:0 auto;padding:0 max(14px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;gap:12px}
+.site-l{display:flex;align-items:center;gap:12px;min-width:0}
+.site-l a{text-decoration:none}
+.crumb{font:700 10.5px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.crumb b{color:var(--blue2);font-weight:700}
+.crumb a{color:inherit;text-decoration:none}
+.crumb a:hover{color:var(--ink)}
+.site-r{display:flex;align-items:center;gap:18px}
+.site-r a,.site-foot nav a{font:500 10px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--mute);text-decoration:none;min-height:40px;display:inline-flex;align-items:center;gap:7px;transition:color .2s}
+.site-r a:hover,.site-foot nav a:hover{color:var(--ink)}
+.site-r a.cine{color:#E3B04F}
+.site-foot{border-top:1px solid var(--line);padding:44px 24px calc(env(safe-area-inset-bottom) + 48px);display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
+.site-foot nav{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 22px}
+.site-foot .tag-line{font:500 10px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.site-foot .labs{font:500 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+@media (max-width:640px){.site-r .hide-s{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<nav class="site" aria-label="DFK Labs">
+  <div class="site-in">
+    <div class="site-l"><a href="https://dfklabs.com/" aria-label="DFK Labs"><span class="dfk-logo">DFK</span></a><span class="crumb"><a href="https://dfklabs.com/labs">Labs</a> · <b>airgap</b></span></div>
+    <div class="site-r">
+      <a class="hide-s" data-site="" href="https://dfklabs.com/" data-i18n="navHome"></a>
+      <a data-site="projects" href="https://dfklabs.com/projects" data-i18n="navProjects"></a>
+      <a href="https://dfklabs.com/labs">Labs</a>
+    </div>
+  </div>
+</nav>
+<div class="stage">
+<div class="app">
+  <header class="top">
+    <svg class="avatar" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="32" fill="#16191e"/><g fill="none" stroke="#2563eb" stroke-width="5" stroke-linecap="round"><path d="M24 23a13 13 0 0 1 0 18"/><path d="M32 17a22 22 0 0 1 0 30"/><path d="M40 11a31 31 0 0 1 0 42"/></g><circle cx="17" cy="32" r="5" fill="#f3f4f6"/></svg>
+    <div class="who"><b>airgap</b><span id="status"><i></i><em id="statusText" style="font-style:normal"></em></span></div>
+    <button class="pill" id="listen" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span id="listenLabel"></span></button>
+    <button class="icon" id="labBtn" data-i18n-label="labOpen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M7.5 15h9"/></svg></button>
+    <button class="icon" id="info" data-i18n-label="infoOpen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button>
+  </header>
+
+  <div id="thread" aria-live="polite"></div>
+
+  <p class="note" data-i18n="note"></p>
+  <div class="banner" id="banner" hidden role="alert"><p id="bannerText"></p><button type="button" id="bannerClose" aria-label="×">×</button></div>
+
+  <div class="bottom">
+    <div class="ear" id="ear" hidden><span data-i18n="earLabel"></span><canvas id="scope" width="600" height="56" aria-hidden="true"></canvas><b id="level"></b></div>
+    <div class="seg" role="group">
+      <button type="button" id="modeChirp" aria-pressed="true">Chirp</button>
+      <button type="button" id="modeMorse" aria-pressed="false">Morse</button>
+    </div>
+    <div class="bar">
+      <label class="field">
+        <span class="sr" data-i18n="placeholder"></span>
+        <textarea id="text" rows="1" maxlength="240" enterkeyhint="send"></textarea>
+        <span class="hint"><span id="count"></span><span id="dur"></span></span>
+      </label>
+      <button class="send" id="send" disabled data-i18n-label="sendLabel"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<aside class="side" id="side">
+  <section class="panel">
+    <div class="panelHead"><h2 data-i18n="wfTitle"></h2><span class="tag" id="wfState"></span></div>
+    <div class="wf"><canvas id="big" width="1400" height="360" aria-hidden="true"></canvas><div class="axis" aria-hidden="true"><span>3.7 kHz</span><span>2.2 kHz</span><span>0.6 kHz</span></div><p class="wfHint" id="wfHint" data-i18n="wfHint"></p></div>
+    <p class="small" data-i18n="wfLegend"></p>
+  </section>
+  <section class="panel" id="sideLab"></section>
+  <p class="small center"><span data-i18n="deskTip"></span> <b id="here"></b></p>
+</aside>
+</div>
+
+<footer class="site-foot">
+  <a href="https://dfklabs.com/" aria-label="DFK Labs"><span class="dfk-logo">DFK</span></a>
+  <nav aria-label="DFK Labs">
+    <a data-site="" href="https://dfklabs.com/" data-i18n="navHome"></a>
+    <a data-site="projects" href="https://dfklabs.com/projects" data-i18n="navProjects"></a>
+    <a href="https://dfklabs.com/labs">Labs</a>
+    <a href="https://github.com/daifukus/airgap" rel="noopener" data-i18n="source"></a>
+    <a href="https://dfklabs.com/privacy" data-i18n="navPrivacy"></a>
+    <a href="https://dfklabs.com/terms" data-i18n="navTerms"></a>
+    <a href="mailto:hola@dfklabs.com" data-i18n="navContact"></a>
+  </nav>
+  <span class="labs" data-i18n="footLabs"></span>
+  <span class="tag-line">Engineered in silence. © 2026 DFK Labs</span>
+</footer>
+
+<div class="sheet" id="sheet" aria-hidden="true">
+  <div role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <span class="grab"></span>
+    <h2 id="sheetTitle">airgap</h2>
+    <p data-i18n="about"></p>
+    <div class="group">
+      <button type="button" class="item" id="receipts" role="switch" aria-checked="true"><span><span data-i18n="receipts"></span><small data-i18n="receiptsSub"></small></span><span class="switch"></span></button>
+      <label class="item"><span data-i18n="language"></span><select id="lang"></select></label>
+      <button type="button" class="item" id="labFromSheet"><span data-i18n="labOpen"></span><span aria-hidden="true">›</span></button>
+      <button type="button" class="item danger" id="clear"><span data-i18n="clear"></span></button>
+    </div>
+    <p data-i18n-html="aboutChirp"></p>
+    <p data-i18n-html="aboutMorse"></p>
+    <div class="foot">
+      <a href="https://dfklabs.com" rel="noopener"><span class="dfk">DFK</span></a>
+      <a href="https://dfklabs.com" rel="noopener">DFK Labs</a><span>·</span>
+      <a href="https://github.com/daifukus/airgap" rel="noopener" data-i18n="source"></a><span>·</span>
+      <span id="ver">v11 · 2026-11-17</span><span>·</span><span>MIT</span>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="labSheet" aria-hidden="true">
+  <div role="dialog" aria-modal="true" aria-labelledby="labTitle" class="lab">
+    <span class="grab"></span>
+    <h2 id="labTitle" data-i18n="labTitle"></h2>
+    <p data-i18n="labIntro"></p>
+    <input id="labText" maxlength="12" autocomplete="off" spellcheck="false" value="Hi!">
+    <div class="step"><h3 data-i18n="lab1"></h3><p data-i18n="lab1p"></p><div class="chips" id="labBytes"></div></div>
+    <div class="step"><h3 data-i18n="lab2"></h3><p data-i18n="lab2p"></p><div class="chips" id="labNibbles"></div></div>
+    <div class="step"><h3 data-i18n="lab3"></h3><p data-i18n="lab3p"></p><div class="chips" id="labTones"></div></div>
+    <div class="btns"><button type="button" class="btn primary" id="labSlow" data-i18n="labSlow"></button><button type="button" class="btn" id="labFast" data-i18n="labFast"></button></div>
+    <div class="step"><h3 data-i18n="lab4"></h3><p data-i18n="lab4p"></p></div>
+    <div class="step"><h3 data-i18n="lab5"></h3><p data-i18n="lab5p"></p></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// Anything that breaks before the app runs is said on the page, not lost in a console nobody on a phone can open.
+addEventListener('error', function (e) { var el = document.getElementById('statusText'); if (el) el.textContent = 'Page error: ' + (e.message || e.type) + ' :' + (e.lineno || ''); });
+</script>
+<script>
+(function () {
+'use strict';
+/* modem.js — inlined by tools/inline.py: BEGIN */
+/*
+ * airgap modem — text over sound, in the browser, with no server.
+ *
+ * 16-tone MFSK: every symbol is one of 16 frequencies between 1.0 and 3.4 kHz,
+ * the band small phone speakers and microphones reproduce best, so each tone
+ * carries 4 bits. A symbol rings for 70 ms and is followed by 20 ms of
+ * silence, which lets a room's echo die down before the next one.
+ *
+ * A message travels as packets of up to PACKET bytes, each one its own frame:
+ *
+ *   preamble  0 F 0 F 0 F        six symbols the listener locks onto
+ *   length    1 byte (of what follows, before the check)
+ *   id        1 byte, the same for every packet of one message
+ *   part      1 byte: packet number (high nibble) and count - 1 (low nibble)
+ *   data      up to PACKET bytes of the message's UTF-8
+ *   check     CRC-16/CCITT over everything from length to data
+ *
+ * Short packets are why long messages arrive: each one locks on afresh, so
+ * clock drift and a moment of noise cost one packet, not the whole message,
+ * and a packet heard on the second try fills the gap left by the first.
+ *
+ * The same file runs in the browser and in Node (for the tests): it only does
+ * arithmetic on Float32Arrays; the page wires it to Web Audio.
+ */
+const BASE = 1000, STEP = 160, TONES = 16;
+const SYM = 0.07, GAP = 0.02;           // seconds
+const PREAMBLE = [0, 15, 0, 15, 0, 15];
+const PACKET = 20;                      // data bytes per packet
+const MAX_BYTES = 160;                  // 8 packets, about 40 seconds of sound
+const LEVEL = 0.92;                     // loud: phone speakers are quiet
+const QUIET = -1, PAUSE = 2;                   // silent slots between packets
+
+const freq = (t) => BASE + t * STEP;
+
+function crc16(bytes) {
+  let c = 0xffff;
+  for (const b of bytes) {
+    c ^= b << 8;
+    for (let i = 0; i < 8; i++) c = c & 0x8000 ? ((c << 1) ^ 0x1021) & 0xffff : (c << 1) & 0xffff;
+  }
+  return c;
+}
+
+let lastId = 0;
+/** A message id: any byte, different from the last one this page used. */
+const newId = () => { let id; do id = Math.floor(Math.random() * 256); while (id === lastId); return (lastId = id); };
+
+/** Text → the packets' symbols, preambles and pauses included (QUIET is a silent slot). */
+function symbolsFor(text, id = 0) {
+  let data = new TextEncoder().encode(text);
+  if (data.length > MAX_BYTES) data = data.slice(0, MAX_BYTES);
+  const count = Math.max(1, Math.ceil(data.length / PACKET));
+  const out = [];
+  for (let k = 0; k < count; k++) {
+    const chunk = [...data.slice(k * PACKET, (k + 1) * PACKET)];
+    const body = [2 + chunk.length, id & 255, (k << 4) | (count - 1), ...chunk];
+    const c = crc16(body);
+    if (k) for (let i = 0; i < PAUSE; i++) out.push(QUIET);
+    out.push(...PREAMBLE);
+    for (const b of [...body, c >> 8, c & 0xff]) out.push(b >> 4, b & 15);
+  }
+  return out;
+}
+
+/** Symbols → audio samples at the given rate, with short fades so tones do not click. */
+function render(symbols, rate) {
+  const n = Math.round(SYM * rate), g = Math.round(GAP * rate), fade = Math.round(0.006 * rate);
+  const out = new Float32Array(symbols.length * (n + g) + Math.round(0.2 * rate));
+  let o = Math.round(0.1 * rate);
+  for (const s of symbols) {
+    if (s !== QUIET) {
+      const w = 2 * Math.PI * freq(s) / rate;
+      for (let i = 0; i < n; i++) out[o + i] = LEVEL * Math.min(1, i / fade, (n - 1 - i) / fade) * Math.sin(w * i);
+    }
+    o += n + g;
+  }
+  return out;
+}
+
+const encode = (text, rate, id = 0) => render(symbolsFor(text, id), rate);
+const duration = (text) => symbolsFor(text).length * (SYM + GAP) + 0.3;
+
+/** Energy of one frequency in a window (Goertzel). */
+function goertzel(x, start, len, f, rate) {
+  const k = 2 * Math.cos(2 * Math.PI * f / rate);
+  let s1 = 0, s2 = 0;
+  for (let i = 0; i < len; i++) { const s0 = x[start + i] + k * s1 - s2; s2 = s1; s1 = s0; }
+  return s1 * s1 + s2 * s2 - k * s1 * s2;
+}
+
+/** The strongest of the 16 tones in a window, and how much it stands out. */
+function strongest(x, start, len, rate) {
+  let best = 0, bi = 0, sum = 0;
+  for (let t = 0; t < TONES; t++) {
+    const e = goertzel(x, start, len, freq(t), rate);
+    sum += e;
+    if (e > best) { best = e; bi = t; }
+  }
+  return { tone: bi, ratio: sum ? best / sum : 0, energy: best / len };
+}
+
+/**
+ * A listener: push microphone samples in, get messages out.
+ * It keeps a few seconds of audio, looks for a preamble every 1/8 symbol,
+ * reads each packet from the middle of its slots, and puts packets together
+ * by message id. A message is delivered once all its packets are in, from any
+ * number of tries; parts of an unfinished message are kept for two minutes.
+ */
+class Receiver {
+  // onPart({ id, k, count, have, clarity }) for every packet read, clarity being how much the
+  // tones stood out (1 = nothing else heard); onMessage({ text, id, at }) once a message is whole.
+  constructor(rate, { onMessage, onLevel, onError, onPart } = {}) {
+    this.rate = rate;
+    this.n = Math.round(SYM * rate);
+    this.slot = this.n + Math.round(GAP * rate);
+    this.hop = Math.max(1, Math.round(this.slot / 8));
+    // Room for the longest packet and its preamble, with plenty to spare.
+    this.buf = new Float32Array(Math.round(this.slot * (PREAMBLE.length + 2 * (PACKET + 5)) * 2 + rate * 2));
+    this.len = 0;
+    this.pos = 0;            // next hop to analyse
+    this.cb = { onMessage, onLevel, onError, onPart };
+    this.cooldown = 0;
+    this.parts = new Map();  // id → { count, got: Map(k → bytes), at }
+  }
+
+  push(samples) {
+    if (this.len + samples.length > this.buf.length) {
+      // Drop the oldest audio, keeping everything a packet in flight could need.
+      const keep = this.buf.length - samples.length;
+      const drop = this.len - keep;
+      if (drop > 0) { this.buf.copyWithin(0, drop, this.len); this.len -= drop; this.pos = Math.max(0, this.pos - drop); }
+    }
+    this.buf.set(samples, this.len);
+    this.len += samples.length;
+    this.scan();
+  }
+
+  scan() {
+    const { n, slot, hop } = this;
+    const need = PREAMBLE.length * slot;
+    while (this.pos + need + n <= this.len) {
+      if (this.cooldown > 0) { this.pos += hop; this.cooldown -= hop; continue; }
+      const p = this.pos;
+      const win = Math.round(n * 0.6), off = Math.round(n * 0.2);
+      // Does a preamble start here? Every one of its six slots must carry its tone, clearly.
+      let ok = true;
+      for (let i = 0; i < PREAMBLE.length && ok; i++) {
+        const r = strongest(this.buf, p + i * slot + off, win, this.rate);
+        if (r.tone !== PREAMBLE[i] || r.ratio < 0.45) ok = false;
+      }
+      if (this.cb.onLevel && p % (hop * 4) < hop) this.cb.onLevel(strongest(this.buf, p, n, this.rate));
+      if (!ok) { this.pos += hop; continue; }
+      // Refine: slide within one hop to the offset where the preamble rings strongest.
+      let bestP = p, bestE = -1;
+      for (let d = -hop; d <= hop; d += Math.max(1, Math.round(hop / 4))) {
+        if (p + d < 0) continue;
+        let e = 0;
+        for (let i = 0; i < PREAMBLE.length; i++) e += goertzel(this.buf, p + d + i * slot + off, win, freq(PREAMBLE[i]), this.rate);
+        if (e > bestE) { bestE = e; bestP = p + d; }
+      }
+      const r = this.read(bestP + PREAMBLE.length * slot);
+      if (r === 'wait') return;               // the rest has not arrived yet
+      if (r) { this.packet(r.body, r.clarity); this.pos = bestP + r.symbols * slot; this.cooldown = slot; }
+      else { this.cb.onError && this.cb.onError('crc'); this.pos = bestP + PREAMBLE.length * slot; }
+    }
+  }
+
+  /** Reads one packet from `start`; 'wait' if it is not all here yet, null if it fails the check. */
+  read(start) {
+    const { n, slot } = this;
+    const win = Math.round(n * 0.6), off = Math.round(n * 0.2);
+    let clear = 0, seen = 0;
+    const sym = (i) => { const r = strongest(this.buf, start + i * slot + off, win, this.rate); clear += r.ratio; seen++; return r.tone; };
+    if (start + 2 * slot > this.len) return 'wait';
+    const length = (sym(0) << 4) | sym(1);
+    if (length < 2 || length > PACKET + 2) return null;
+    const total = 2 * (1 + length + 2);
+    if (start + total * slot > this.len) return 'wait';
+    const bytes = [];
+    for (let i = 0; i < total; i += 2) bytes.push((sym(i) << 4) | sym(i + 1));
+    const body = bytes.slice(0, 1 + length), c = (bytes[1 + length] << 8) | bytes[2 + length];
+    if (crc16(body) !== c) return null;
+    return { body, symbols: PREAMBLE.length + total, clarity: clear / seen };
+  }
+
+  /** Files a packet under its message and delivers the message when it is whole. */
+  packet(body, clarity = 1) {
+    const id = body[1], k = body[2] >> 4, count = (body[2] & 15) + 1, data = body.slice(3);
+    if (k >= count) return;
+    const now = Date.now();
+    for (const [key, m] of this.parts) if (now - m.at > 120000) this.parts.delete(key);
+    let m = this.parts.get(id);
+    if (!m || m.count !== count) { m = { count, got: new Map(), at: now }; this.parts.set(id, m); }
+    m.got.set(k, data); m.at = now;
+    this.cb.onPart && this.cb.onPart({ id, k, count, have: m.got.size, clarity });
+    if (m.got.size < count) return;
+    // Once whole, a later try is delivered again when it has run from its first
+    // packet to its last, so it is answered once per try, not once per packet.
+    if (m.since) { m.since.add(k); if (k !== count - 1 || !m.since.has(0)) return; }
+    m.since = new Set();
+    const all = [];
+    for (let i = 0; i < count; i++) all.push(...m.got.get(i));
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(all)); } catch (e) { this.parts.delete(id); this.cb.onError && this.cb.onError('utf8'); return; }
+    this.cb.onMessage && this.cb.onMessage({ text, id, at: now });
+  }
+}
+
+/*
+ * Delivery receipts. A phone that reads a message answers with a tiny one of
+ * its own: the ACK control character and the CRC of what it read, as four hex
+ * digits. The sender matches it to the message it sent and marks it heard.
+ * About two seconds of sound.
+ */
+const ACK = '\u0006';
+const ackFor = (text) => ACK + crc16([...new TextEncoder().encode(text)]).toString(16).padStart(4, '0');
+const ackOf = (text) => (text.length === 5 && text[0] === ACK && /^[0-9a-f]{4}$/.test(text.slice(1)) ? text.slice(1) : null);
+const idOf = (text) => ackFor(text).slice(1);
+
+/*
+ * Morse, for when a person should be able to hear it too. One tone at
+ * MORSE_HZ, International Morse timing (dot 1, dash 3, gap 1, letter 3,
+ * word 7 units); 15 words a minute makes a unit 80 ms.
+ */
+const MORSE_HZ = 800, MORSE_WPM = 15;
+const MORSE = {
+  A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--',
+  N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
+  0: '-----', 1: '.----', 2: '..---', 3: '...--', 4: '....-', 5: '.....', 6: '-....', 7: '--...', 8: '---..', 9: '----.',
+  '.': '.-.-.-', ',': '--..--', '?': '..--..', "'": '.----.', '!': '-.-.--', '/': '-..-.', '(': '-.--.', ')': '-.--.-', '&': '.-...',
+  ':': '---...', ';': '-.-.-.', '=': '-...-', '+': '.-.-.', '-': '-....-', '"': '.-..-.', '@': '.--.-.',
+};
+const UNMORSE = Object.fromEntries(Object.entries(MORSE).map(([k, v]) => [v, k]));
+const FOLD = { Á: 'A', À: 'A', Ä: 'A', Â: 'A', É: 'E', È: 'E', Ë: 'E', Ê: 'E', Í: 'I', Ï: 'I', Ó: 'O', Ö: 'O', Ô: 'O', Ú: 'U', Ü: 'U', Ñ: 'N', Ç: 'C' };
+
+/** What Morse can carry of a text: upper case, accents folded, the rest dropped. */
+function morseText(text) {
+  return text.toUpperCase().split('').map((c) => FOLD[c] || c).filter((c) => c === ' ' || MORSE[c]).join('').replace(/\s+/g, ' ').trim();
+}
+const morseCode = (text) => morseText(text).split(' ').map((w) => w.split('').map((c) => MORSE[c]).join(' ')).join(' / ');
+
+function morseEncode(text, rate, wpm = MORSE_WPM) {
+  const u = Math.round(1.2 / wpm * rate), fade = Math.round(0.005 * rate), w = 2 * Math.PI * MORSE_HZ / rate;
+  const marks = [];                       // [on?, units]
+  morseText(text).split(' ').forEach((word, wi) => {
+    if (wi) marks.push([0, 7]);
+    word.split('').forEach((c, ci) => {
+      if (ci) marks.push([0, 3]);
+      MORSE[c].split('').forEach((s, si) => { if (si) marks.push([0, 1]); marks.push([1, s === '.' ? 1 : 3]); });
+    });
+  });
+  const total = marks.reduce((a, m) => a + m[1], 0);
+  const out = new Float32Array(total * u + Math.round(0.3 * rate));
+  let o = Math.round(0.1 * rate);
+  for (const [on, k] of marks) {
+    const n = k * u;
+    if (on) for (let i = 0; i < n; i++) out[o + i] = LEVEL * Math.min(1, i / fade, (n - 1 - i) / fade) * Math.sin(w * (o + i));
+    o += n;
+  }
+  return out;
+}
+const morseDuration = (text, wpm = MORSE_WPM) => morseEncode(text, 8000, wpm).length / 8000;
+
+/**
+ * Hears Morse: the tone's energy in 10 ms blocks against two neighbours, so a
+ * voice or a chord does not count as a mark; marks and gaps are measured in
+ * blocks and read against the dot length the sender is actually using.
+ * onChar(text so far) while it arrives, onText(text) after a pause.
+ */
+class MorseReceiver {
+  constructor(rate, { onChar, onText } = {}) {
+    this.rate = rate; this.block = Math.round(rate * 0.01); this.cb = { onChar, onText };
+    this.rest = new Float32Array(0); this.floor = 0; this.warm = 0; this.peak = 0;
+    this.on = false; this.run = 0; this.pend = 0; this.lastDot = 0; this.heard = false; this.unit = Math.round(1.2 / MORSE_WPM * 100);
+    this.sym = ''; this.text = ''; this.idle = 0;
+  }
+  push(samples) {
+    let x = samples;
+    if (this.rest.length) { x = new Float32Array(this.rest.length + samples.length); x.set(this.rest); x.set(samples, this.rest.length); }
+    const B = this.block; let i = 0;
+    for (; i + B <= x.length; i += B) this.step(x, i, B);
+    this.rest = x.slice(i);
+  }
+  step(x, start, B) {
+    const e = (f) => { const k = 2 * Math.cos(2 * Math.PI * f / this.rate); let s1 = 0, s2 = 0; for (let i = 0; i < B; i++) { const s0 = x[start + i] + k * s1 - s2; s2 = s1; s1 = s0; } return (s1 * s1 + s2 * s2 - k * s1 * s2) / B; };
+    const t = e(MORSE_HZ), side = Math.max(e(MORSE_HZ - 300), e(MORSE_HZ + 300));
+    // The floor is the room's usual level at this pitch (only quiet blocks feed it) and the
+    // peak is the loudest recent mark. A mark has to clear both by a margin, so noise does
+    // not count, and neither does the room's echo trailing a mark at a quarter of its level.
+    if (this.warm < 25) { this.floor = (this.floor * this.warm + t) / (this.warm + 1); this.warm++; return; }   // a quarter second to learn the room
+    if (t < this.floor * 4) this.floor = Math.max(1e-9, this.floor * 0.95 + t * 0.05);
+    this.peak = Math.max(t, this.peak * 0.997);
+    const hi = Math.max(this.floor * 12, this.peak * 0.12), lo = Math.max(this.floor * 6, this.peak * 0.06);
+    // Hysteresis: easier to stay on than to come on. And a change counts only
+    // once it has held for two blocks, so a one-block dropout or blip is ignored.
+    const raw = this.on ? t > lo && t > side * 2 : t > hi && t > side * 4;
+    if (raw === this.on) { this.run += this.pend + 1; this.pend = 0; if (!raw) this.gap(); return; }
+    if (++this.pend < 2) return;
+    if (this.on) this.mark(this.run); else this.space(this.run);
+    this.on = raw; this.run = this.pend; this.pend = 0;
+  }
+  // A room's echo makes every mark longer and every gap shorter by the same
+  // amount, so the unit is read from a dot and the gap after it together.
+  mark(n) {
+    if (n < 3) return;                        // too short to be a dot
+    const dot = n < this.unit * 2;
+    if (dot) this.lastDot = n;
+    this.sym += dot ? '.' : '-';
+  }
+  space(n) {
+    if (n < this.unit * 2) {
+      if (this.lastDot && n >= this.unit / 2 && this.lastDot >= this.unit / 2) { const u = (this.lastDot + n) / 2; this.unit = Math.min(16, Math.max(5, Math.round(this.heard ? this.unit * 0.5 + u * 0.5 : u))); this.heard = true; }
+      this.lastDot = 0;
+      return;
+    }
+    this.letter();
+    if (n >= this.unit * 5 && this.text && !this.text.endsWith(' ')) this.text += ' ';
+  }
+  letter() {
+    if (!this.sym) return;
+    const c = UNMORSE[this.sym]; this.sym = '';
+    if (c) { this.text += c; this.cb.onChar && this.cb.onChar(this.text); }
+  }
+  gap() {
+    // A long silence ends the message: the pending letter, then the whole text.
+    if (this.run >= this.unit * 3) this.letter();
+    if (this.run >= this.unit * 12 && this.text) {
+      const t = this.text.trim(); this.text = ''; this.heard = false;
+      if (t.replace(/ /g, '').length >= 2) this.cb.onText && this.cb.onText(t);
+    }
+  }
+}
+/* modem.js — inlined by tools/inline.py: END */
+// Every word on the page, in the six languages the DFK Labs pages speak. The
+// browser's own language picks one; the sheet can change it. Messages
+// themselves are never translated: they are what people wrote.
+const STR = {
+  en: {
+    name: 'English',
+    navHome: 'Home', navProjects: 'Projects', navGames: 'Games', navPrivacy: 'Privacy', navTerms: 'Terms', navContact: 'Contact', footLabs: 'DFK Labs · Labs — small experiments, made in the open',
+    wfTitle: 'What the microphone hears', wfHint: 'Tap Listen — or send something — to see the sound here.',
+    wfLegend: 'Time runs right to left, pitch bottom to top, loudness as light. A chirp is a staircase of short dashes; Morse is one line low down. Your own messages show here too as they play.', deskTip: 'Open it on your phone too and chirp between the two:',
+    note: 'An experiment: text travels as sound. Every phone’s speaker and microphone is different, so sometimes a piece gets lost — that is what the retries are for.',
+    earLabel: 'hearing', quiet: 'quiet', placeholder: 'Message', placeholderMorse: 'Message in Morse', sendLabel: 'Send by sound',
+    labOpen: 'How it works', infoOpen: 'About and settings',
+    about: 'Text from one phone to another by sound. Turn flight mode on: it still works. Nothing is sent anywhere and no audio is kept; the chat lives on this phone only.',
+    receipts: 'Chirp back when I read one', receiptsSub: 'The other phone gets ✓✓ Heard', language: 'Language', clear: 'Clear this chat', source: 'Source',
+    aboutChirp: '<b>Chirp</b> is fast and checked: 16 tones between 1.0 and 3.4&nbsp;kHz, 4 bits each, 70&nbsp;ms per tone. A message goes in pieces of 20 bytes, each with its own start pattern and check, so a bad moment costs one piece, and the next try fills it in. The phone that reads it chirps back; with no answer, yours tries again by itself.',
+    aboutMorse: '<b>Morse</b> is slow and human: one 800&nbsp;Hz tone at 15 words a minute. A person can copy it by ear, and so can the other phone.',
+    labTitle: 'How it works', labIntro: 'Type a word and watch it turn into sound, one step at a time.',
+    lab1: '1 · Letters become bytes', lab1p: 'Every character is stored as one or more numbers from 0 to 255 (UTF-8).',
+    lab2: '2 · Bytes split in half', lab2p: 'Each byte becomes two pieces of 4 bits: a number from 0 to 15, written 0–F.',
+    lab3: '3 · Each half is a tone', lab3p: 'Sixteen pitches, one per number. Before the message come six tones that say “listen now”, then its length, a label and a check.',
+    labSlow: '▶ Play slowly', labFast: '▶ Real speed',
+    lab4: '4 · Pieces and checks', lab4p: 'A long message is cut into pieces of 20 bytes. Each carries a check (CRC-16): if one tone was heard wrong, the sum does not match and the piece is thrown away instead of shown wrong.',
+    lab5: '5 · Why it sometimes fails', lab5p: 'Phone speakers are tiny and every microphone filters sound its own way; echoes and noise do the rest. So the page tries again, and keeps the pieces it already has: the second try usually only needs what the first one missed.',
+    micOff: 'Mic off · tap Listen', listening: 'Listening', listen: 'Listen', starting: 'Starting the microphone…', sendingNow: 'Sending…',
+    tapToStart: 'Tap anywhere to start the microphone', unclear: 'Heard something, not clearly — come closer', receivingLong: 'Receiving · {have}/{count} pieces',
+    secs: '≈ {s} s of sound', letters: '{n} letters', morseHint: 'letters · digits · . , ? !', morseOnly: 'Morse has letters, digits and . , ? ! only',
+    sending: 'Sending', tryAgain: 'Trying again {n}/{max}', sent: 'Sent', heard: 'Heard', sendAgain: 'Send again', copy: 'Copy', copied: 'Copied', copyFail: 'Could not copy', hearing: 'hearing…', receiving: 'receiving…',
+    today: 'Today', yesterday: 'Yesterday',
+    emptyTitle: 'Talk with sound', empty1: 'Open this page on two phones.', empty2: 'Tap Listen on both.', empty3: 'Write and send — the other phone reads it and chirps back <b>✓✓</b>.', emptyFlight: 'Flight mode on? It still works.', emptyLab: 'See how it works',
+    toastHeard: '✓✓ Heard', cleared: 'Chat cleared',
+    errInApp: 'This app’s browser cannot use the microphone. Open the page in Safari or Chrome.', errBlockedIos: 'The microphone is blocked. Tap “aA” in the address bar ▸ Website Settings ▸ Microphone ▸ Allow, then tap Listen.', errBlocked: 'The microphone is blocked. Allow it from the address bar, then tap Listen.', errBusy: 'Another app is using the microphone. Close it and tap Listen.', errNoMedia: 'This browser cannot use the microphone here. Try Safari or Chrome.', errNotFound: 'No microphone was found.', errSilence: 'The microphone hears nothing yet. Tap Listen again.',
+    dPieces: '{n} pieces', dPiece: '1 piece', dTries: '{n} tries', dSecs: '{s} s', dClarity: 'clarity {p}%', dFirst: 'first try', dLater: 'filled in by a later try',
+  },
+  es: {
+    name: 'Español',
+    navHome: 'Inicio', navProjects: 'Proyectos', navGames: 'Juegos', navPrivacy: 'Privacidad', navTerms: 'Términos', navContact: 'Contacto', footLabs: 'DFK Labs · Labs — pequeños experimentos, hechos a la vista',
+    wfTitle: 'Lo que oye el micrófono', wfHint: 'Toca Escuchar —o envía algo— para ver el sonido aquí.',
+    wfLegend: 'El tiempo corre de derecha a izquierda, el tono de abajo arriba y el volumen es la luz. Un chirp es una escalera de rayitas; el Morse, una sola línea abajo. Tus propios mensajes también se ven aquí mientras suenan.', deskTip: 'Ábrelo también en el móvil y haz chirps entre los dos:',
+    note: 'Un experimento: el texto viaja como sonido. El altavoz y el micrófono de cada móvil son distintos, así que a veces se pierde un trozo; para eso están los reintentos.',
+    earLabel: 'oyendo', quiet: 'silencio', placeholder: 'Mensaje', placeholderMorse: 'Mensaje en Morse', sendLabel: 'Enviar por sonido',
+    labOpen: 'Cómo funciona', infoOpen: 'Información y ajustes',
+    about: 'Texto de un móvil a otro con sonido. Activa el modo avión: sigue funcionando. No se envía nada a ningún sitio ni se guarda audio; el chat vive solo en este móvil.',
+    receipts: 'Responder con un chirp al leer uno', receiptsSub: 'El otro móvil ve ✓✓ Oído', language: 'Idioma', clear: 'Borrar este chat', source: 'Código',
+    aboutChirp: '<b>Chirp</b> es rápido y comprobado: 16 tonos entre 1,0 y 3,4&nbsp;kHz, 4 bits cada uno, 70&nbsp;ms por tono. El mensaje va en trozos de 20 bytes, cada uno con su señal de inicio y su comprobación, así que un mal momento cuesta un trozo y el siguiente intento lo rellena. El móvil que lo lee responde con un chirp; si no hay respuesta, el tuyo lo vuelve a intentar solo.',
+    aboutMorse: '<b>Morse</b> es lento y humano: un tono de 800&nbsp;Hz a 15 palabras por minuto. Una persona puede copiarlo de oído, y el otro móvil también.',
+    labTitle: 'Cómo funciona', labIntro: 'Escribe una palabra y mira cómo se convierte en sonido, paso a paso.',
+    lab1: '1 · Las letras se vuelven bytes', lab1p: 'Cada carácter se guarda como uno o varios números del 0 al 255 (UTF-8).',
+    lab2: '2 · Cada byte se parte en dos', lab2p: 'Cada byte se convierte en dos trozos de 4 bits: un número del 0 al 15, escrito 0–F.',
+    lab3: '3 · Cada mitad es un tono', lab3p: 'Dieciséis notas, una por número. Antes del mensaje van seis tonos que dicen «escucha ahora», luego su longitud, una etiqueta y una comprobación.',
+    labSlow: '▶ Escuchar despacio', labFast: '▶ Velocidad real',
+    lab4: '4 · Trozos y comprobaciones', lab4p: 'Un mensaje largo se corta en trozos de 20 bytes. Cada uno lleva una comprobación (CRC-16): si un tono se oyó mal, la cuenta no cuadra y el trozo se descarta en vez de mostrarse mal.',
+    lab5: '5 · Por qué a veces falla', lab5p: 'Los altavoces de los móviles son diminutos y cada micrófono filtra el sonido a su manera; el eco y el ruido hacen el resto. Por eso la página lo reintenta y guarda los trozos que ya tiene: el segundo intento suele necesitar solo lo que se perdió en el primero.',
+    micOff: 'Micro apagado · toca Escuchar', listening: 'Escuchando', listen: 'Escuchar', starting: 'Encendiendo el micrófono…', sendingNow: 'Enviando…',
+    tapToStart: 'Toca la pantalla para encender el micrófono', unclear: 'He oído algo, pero no claro: acércate', receivingLong: 'Recibiendo · {have}/{count} trozos',
+    secs: '≈ {s} s de sonido', letters: '{n} letras', morseHint: 'letras · números · . , ? !', morseOnly: 'El Morse solo tiene letras, números y . , ? !',
+    sending: 'Enviando', tryAgain: 'Reintentando {n}/{max}', sent: 'Enviado', heard: 'Oído', sendAgain: 'Reenviar', copy: 'Copiar', copied: 'Copiado', copyFail: 'No se pudo copiar', hearing: 'oyendo…', receiving: 'recibiendo…',
+    today: 'Hoy', yesterday: 'Ayer',
+    emptyTitle: 'Habla con sonido', empty1: 'Abre esta página en dos móviles.', empty2: 'Toca Escuchar en los dos.', empty3: 'Escribe y envía: el otro móvil lo lee y responde <b>✓✓</b>.', emptyFlight: '¿Modo avión? Sigue funcionando.', emptyLab: 'Mira cómo funciona',
+    toastHeard: '✓✓ Oído', cleared: 'Chat borrado',
+    errInApp: 'El navegador de esta app no puede usar el micrófono. Abre la página en Safari o Chrome.', errBlockedIos: 'El micrófono está bloqueado. Toca «aA» en la barra de direcciones ▸ Ajustes del sitio web ▸ Micrófono ▸ Permitir, y luego Escuchar.', errBlocked: 'El micrófono está bloqueado. Permítelo desde la barra de direcciones y toca Escuchar.', errBusy: 'Otra app está usando el micrófono. Ciérrala y toca Escuchar.', errNoMedia: 'Este navegador no puede usar el micrófono aquí. Prueba Safari o Chrome.', errNotFound: 'No se ha encontrado ningún micrófono.', errSilence: 'El micrófono aún no oye nada. Toca Escuchar otra vez.',
+    dPieces: '{n} trozos', dPiece: '1 trozo', dTries: '{n} intentos', dSecs: '{s} s', dClarity: 'claridad {p} %', dFirst: 'primer intento', dLater: 'rellenado en otro intento',
+  },
+  de: {
+    name: 'Deutsch',
+    navHome: 'Start', navProjects: 'Projekte', navGames: 'Spiele', navPrivacy: 'Datenschutz', navTerms: 'Bedingungen', navContact: 'Kontakt', footLabs: 'DFK Labs · Labs — kleine Experimente, offen gebaut',
+    wfTitle: 'Was das Mikrofon hört', wfHint: 'Tippe auf Zuhören – oder sende etwas –, um den Ton hier zu sehen.',
+    wfLegend: 'Die Zeit läuft von rechts nach links, die Tonhöhe von unten nach oben, Lautstärke ist Helligkeit. Ein Chirp ist eine Treppe aus kurzen Strichen, Morse eine einzelne Linie unten. Deine eigenen Nachrichten erscheinen hier auch, während sie spielen.', deskTip: 'Öffne es auch auf dem Handy und zwitschere zwischen beiden:',
+    note: 'Ein Experiment: Text reist als Ton. Lautsprecher und Mikrofon sind bei jedem Handy anders, deshalb geht manchmal ein Stück verloren – dafür gibt es die Wiederholungen.',
+    earLabel: 'hört', quiet: 'still', placeholder: 'Nachricht', placeholderMorse: 'Nachricht in Morse', sendLabel: 'Per Ton senden',
+    labOpen: 'So funktioniert’s', infoOpen: 'Info und Einstellungen',
+    about: 'Text von einem Handy zum anderen per Ton. Schalte den Flugmodus ein: Es funktioniert trotzdem. Nichts wird irgendwohin geschickt, kein Ton gespeichert; der Chat bleibt auf diesem Handy.',
+    receipts: 'Beim Lesen zurückzwitschern', receiptsSub: 'Das andere Handy sieht ✓✓ Gehört', language: 'Sprache', clear: 'Diesen Chat löschen', source: 'Quellcode',
+    aboutChirp: '<b>Chirp</b> ist schnell und geprüft: 16 Töne zwischen 1,0 und 3,4&nbsp;kHz, je 4 Bit, 70&nbsp;ms pro Ton. Eine Nachricht reist in Stücken von 20 Byte, jedes mit eigenem Startsignal und eigener Prüfsumme – ein schlechter Moment kostet ein Stück, und der nächste Versuch füllt es auf. Das lesende Handy antwortet; ohne Antwort versucht es deins von selbst noch einmal.',
+    aboutMorse: '<b>Morse</b> ist langsam und menschlich: ein Ton bei 800&nbsp;Hz, 15 Wörter pro Minute. Ein Mensch kann es nach Gehör mitschreiben, das andere Handy auch.',
+    labTitle: 'So funktioniert’s', labIntro: 'Tippe ein Wort und sieh zu, wie es Schritt für Schritt zu Ton wird.',
+    lab1: '1 · Buchstaben werden Bytes', lab1p: 'Jedes Zeichen wird als eine oder mehrere Zahlen von 0 bis 255 gespeichert (UTF-8).',
+    lab2: '2 · Bytes werden halbiert', lab2p: 'Jedes Byte wird zu zwei Stücken mit 4 Bit: eine Zahl von 0 bis 15, geschrieben 0–F.',
+    lab3: '3 · Jede Hälfte ist ein Ton', lab3p: 'Sechzehn Tonhöhen, eine pro Zahl. Vor der Nachricht kommen sechs Töne, die „jetzt zuhören“ sagen, dann Länge, Kennung und Prüfsumme.',
+    labSlow: '▶ Langsam abspielen', labFast: '▶ Echtes Tempo',
+    lab4: '4 · Stücke und Prüfsummen', lab4p: 'Eine lange Nachricht wird in Stücke von 20 Byte geteilt. Jedes trägt eine Prüfsumme (CRC-16): Wurde ein Ton falsch gehört, stimmt die Summe nicht, und das Stück wird verworfen statt falsch angezeigt.',
+    lab5: '5 · Warum es manchmal scheitert', lab5p: 'Handylautsprecher sind winzig, und jedes Mikrofon filtert anders; Echo und Lärm tun den Rest. Deshalb versucht es die Seite erneut und behält, was schon da ist: Der zweite Versuch braucht meist nur, was dem ersten fehlte.',
+    micOff: 'Mikro aus · Zuhören tippen', listening: 'Hört zu', listen: 'Zuhören', starting: 'Mikrofon startet…', sendingNow: 'Sendet…',
+    tapToStart: 'Irgendwo tippen, um das Mikrofon zu starten', unclear: 'Etwas gehört, aber unklar – näher heran', receivingLong: 'Empfängt · {have}/{count} Stücke',
+    secs: '≈ {s} s Ton', letters: '{n} Zeichen', morseHint: 'Buchstaben · Ziffern · . , ? !', morseOnly: 'Morse kennt nur Buchstaben, Ziffern und . , ? !',
+    sending: 'Sendet', tryAgain: 'Neuer Versuch {n}/{max}', sent: 'Gesendet', heard: 'Gehört', sendAgain: 'Erneut senden', copy: 'Kopieren', copied: 'Kopiert', copyFail: 'Kopieren fehlgeschlagen', hearing: 'hört…', receiving: 'empfängt…',
+    today: 'Heute', yesterday: 'Gestern',
+    emptyTitle: 'Mit Ton reden', empty1: 'Öffne diese Seite auf zwei Handys.', empty2: 'Tippe auf beiden auf Zuhören.', empty3: 'Schreiben und senden – das andere Handy liest es und zwitschert <b>✓✓</b> zurück.', emptyFlight: 'Flugmodus an? Funktioniert trotzdem.', emptyLab: 'So funktioniert’s',
+    toastHeard: '✓✓ Gehört', cleared: 'Chat gelöscht',
+    errInApp: 'Der Browser dieser App kann das Mikrofon nicht nutzen. Öffne die Seite in Safari oder Chrome.', errBlockedIos: 'Das Mikrofon ist blockiert. Tippe auf „aA“ in der Adressleiste ▸ Website-Einstellungen ▸ Mikrofon ▸ Erlauben, dann auf Zuhören.', errBlocked: 'Das Mikrofon ist blockiert. Erlaube es über die Adressleiste und tippe auf Zuhören.', errBusy: 'Eine andere App nutzt das Mikrofon. Schließe sie und tippe auf Zuhören.', errNoMedia: 'Dieser Browser kann das Mikrofon hier nicht nutzen. Versuche Safari oder Chrome.', errNotFound: 'Kein Mikrofon gefunden.', errSilence: 'Das Mikrofon hört noch nichts. Tippe erneut auf Zuhören.',
+    dPieces: '{n} Stücke', dPiece: '1 Stück', dTries: '{n} Versuche', dSecs: '{s} s', dClarity: 'Klarheit {p} %', dFirst: 'erster Versuch', dLater: 'von einem späteren Versuch ergänzt',
+  },
+  fr: {
+    name: 'Français',
+    navHome: 'Accueil', navProjects: 'Projets', navGames: 'Jeux', navPrivacy: 'Confidentialité', navTerms: 'Conditions', navContact: 'Contact', footLabs: 'DFK Labs · Labs — petites expériences, faites au grand jour',
+    wfTitle: 'Ce que le micro entend', wfHint: 'Touchez Écouter — ou envoyez quelque chose — pour voir le son ici.',
+    wfLegend: 'Le temps va de droite à gauche, la hauteur de bas en haut, le volume en lumière. Un chirp est un escalier de petits traits ; le morse, une seule ligne en bas. Vos propres messages s’affichent aussi ici pendant qu’ils jouent.', deskTip: 'Ouvrez-le aussi sur votre téléphone et faites des chirps entre les deux :',
+    note: 'Une expérience : le texte voyage sous forme de son. Le haut-parleur et le micro de chaque téléphone sont différents, alors parfois un morceau se perd — c’est à ça que servent les nouvelles tentatives.',
+    earLabel: 'écoute', quiet: 'silence', placeholder: 'Message', placeholderMorse: 'Message en morse', sendLabel: 'Envoyer par le son',
+    labOpen: 'Comment ça marche', infoOpen: 'Infos et réglages',
+    about: 'Du texte d’un téléphone à l’autre par le son. Activez le mode avion : ça marche quand même. Rien n’est envoyé nulle part, aucun son n’est gardé ; la discussion reste sur ce téléphone.',
+    receipts: 'Répondre d’un chirp quand j’en lis un', receiptsSub: 'L’autre téléphone voit ✓✓ Entendu', language: 'Langue', clear: 'Effacer cette discussion', source: 'Code source',
+    aboutChirp: '<b>Chirp</b> est rapide et vérifié : 16 tons entre 1,0 et 3,4&nbsp;kHz, 4 bits chacun, 70&nbsp;ms par ton. Un message part en morceaux de 20 octets, chacun avec son signal de départ et sa vérification : un mauvais moment coûte un morceau, et la tentative suivante le complète. Le téléphone qui le lit répond ; sans réponse, le vôtre réessaie tout seul.',
+    aboutMorse: '<b>Le morse</b> est lent et humain : un ton à 800&nbsp;Hz, 15 mots par minute. Une personne peut le noter à l’oreille, et l’autre téléphone aussi.',
+    labTitle: 'Comment ça marche', labIntro: 'Tapez un mot et regardez-le devenir du son, étape par étape.',
+    lab1: '1 · Les lettres deviennent des octets', lab1p: 'Chaque caractère est stocké sous forme d’un ou plusieurs nombres de 0 à 255 (UTF-8).',
+    lab2: '2 · Chaque octet coupé en deux', lab2p: 'Chaque octet devient deux morceaux de 4 bits : un nombre de 0 à 15, écrit 0–F.',
+    lab3: '3 · Chaque moitié est un ton', lab3p: 'Seize hauteurs, une par nombre. Avant le message viennent six tons qui disent « écoute maintenant », puis sa longueur, une étiquette et une vérification.',
+    labSlow: '▶ Écouter lentement', labFast: '▶ Vitesse réelle',
+    lab4: '4 · Morceaux et vérifications', lab4p: 'Un long message est coupé en morceaux de 20 octets. Chacun porte une vérification (CRC-16) : si un ton a été mal entendu, le compte ne tombe pas juste et le morceau est jeté au lieu d’être affiché faux.',
+    lab5: '5 · Pourquoi ça échoue parfois', lab5p: 'Les haut-parleurs de téléphone sont minuscules et chaque micro filtre le son à sa façon ; l’écho et le bruit font le reste. Alors la page réessaie et garde les morceaux déjà reçus : la deuxième tentative n’a souvent besoin que de ce qui manquait.',
+    micOff: 'Micro coupé · touchez Écouter', listening: 'À l’écoute', listen: 'Écouter', starting: 'Démarrage du micro…', sendingNow: 'Envoi…',
+    tapToStart: 'Touchez l’écran pour démarrer le micro', unclear: 'Entendu quelque chose, pas clairement — rapprochez-vous', receivingLong: 'Réception · {have}/{count} morceaux',
+    secs: '≈ {s} s de son', letters: '{n} lettres', morseHint: 'lettres · chiffres · . , ? !', morseOnly: 'Le morse n’a que des lettres, des chiffres et . , ? !',
+    sending: 'Envoi', tryAgain: 'Nouvel essai {n}/{max}', sent: 'Envoyé', heard: 'Entendu', sendAgain: 'Renvoyer', copy: 'Copier', copied: 'Copié', copyFail: 'Copie impossible', hearing: 'écoute…', receiving: 'réception…',
+    today: 'Aujourd’hui', yesterday: 'Hier',
+    emptyTitle: 'Parler avec le son', empty1: 'Ouvrez cette page sur deux téléphones.', empty2: 'Touchez Écouter sur les deux.', empty3: 'Écrivez et envoyez — l’autre téléphone le lit et répond <b>✓✓</b>.', emptyFlight: 'Mode avion ? Ça marche quand même.', emptyLab: 'Voir comment ça marche',
+    toastHeard: '✓✓ Entendu', cleared: 'Discussion effacée',
+    errInApp: 'Le navigateur de cette appli ne peut pas utiliser le micro. Ouvrez la page dans Safari ou Chrome.', errBlockedIos: 'Le micro est bloqué. Touchez « aA » dans la barre d’adresse ▸ Réglages du site web ▸ Micro ▸ Autoriser, puis Écouter.', errBlocked: 'Le micro est bloqué. Autorisez-le depuis la barre d’adresse, puis touchez Écouter.', errBusy: 'Une autre appli utilise le micro. Fermez-la et touchez Écouter.', errNoMedia: 'Ce navigateur ne peut pas utiliser le micro ici. Essayez Safari ou Chrome.', errNotFound: 'Aucun micro trouvé.', errSilence: 'Le micro n’entend encore rien. Touchez Écouter à nouveau.',
+    dPieces: '{n} morceaux', dPiece: '1 morceau', dTries: '{n} essais', dSecs: '{s} s', dClarity: 'clarté {p} %', dFirst: 'premier essai', dLater: 'complété par un essai suivant',
+  },
+  it: {
+    name: 'Italiano',
+    navHome: 'Home', navProjects: 'Progetti', navGames: 'Giochi', navPrivacy: 'Privacy', navTerms: 'Termini', navContact: 'Contatti', footLabs: 'DFK Labs · Labs — piccoli esperimenti, fatti alla luce del sole',
+    wfTitle: 'Cosa sente il microfono', wfHint: 'Tocca Ascolta — o invia qualcosa — per vedere il suono qui.',
+    wfLegend: 'Il tempo scorre da destra a sinistra, l’altezza dal basso in alto, il volume è luce. Un chirp è una scala di trattini; il Morse una sola linea in basso. Anche i tuoi messaggi compaiono qui mentre suonano.', deskTip: 'Aprilo anche sul telefono e fai chirp tra i due:',
+    note: 'Un esperimento: il testo viaggia come suono. Altoparlante e microfono di ogni telefono sono diversi, quindi a volte un pezzo si perde: per questo ci sono i nuovi tentativi.',
+    earLabel: 'ascolta', quiet: 'silenzio', placeholder: 'Messaggio', placeholderMorse: 'Messaggio in Morse', sendLabel: 'Invia col suono',
+    labOpen: 'Come funziona', infoOpen: 'Info e impostazioni',
+    about: 'Testo da un telefono all’altro col suono. Attiva la modalità aereo: funziona lo stesso. Non viene inviato nulla da nessuna parte né salvato audio; la chat resta su questo telefono.',
+    receipts: 'Rispondi con un chirp quando ne leggo uno', receiptsSub: 'L’altro telefono vede ✓✓ Sentito', language: 'Lingua', clear: 'Cancella questa chat', source: 'Codice',
+    aboutChirp: '<b>Chirp</b> è veloce e verificato: 16 toni tra 1,0 e 3,4&nbsp;kHz, 4 bit ciascuno, 70&nbsp;ms per tono. Un messaggio viaggia in pezzi da 20 byte, ognuno con il suo segnale d’inizio e il suo controllo: un brutto momento costa un pezzo, e il tentativo successivo lo completa. Il telefono che lo legge risponde; senza risposta, il tuo riprova da solo.',
+    aboutMorse: '<b>Il Morse</b> è lento e umano: un tono a 800&nbsp;Hz, 15 parole al minuto. Una persona può trascriverlo a orecchio, e anche l’altro telefono.',
+    labTitle: 'Come funziona', labIntro: 'Scrivi una parola e guardala diventare suono, un passo alla volta.',
+    lab1: '1 · Le lettere diventano byte', lab1p: 'Ogni carattere è salvato come uno o più numeri da 0 a 255 (UTF-8).',
+    lab2: '2 · Ogni byte diviso a metà', lab2p: 'Ogni byte diventa due pezzi da 4 bit: un numero da 0 a 15, scritto 0–F.',
+    lab3: '3 · Ogni metà è un tono', lab3p: 'Sedici note, una per numero. Prima del messaggio arrivano sei toni che dicono «ascolta ora», poi la lunghezza, un’etichetta e un controllo.',
+    labSlow: '▶ Ascolta piano', labFast: '▶ Velocità reale',
+    lab4: '4 · Pezzi e controlli', lab4p: 'Un messaggio lungo viene tagliato in pezzi da 20 byte. Ognuno porta un controllo (CRC-16): se un tono è stato sentito male, il conto non torna e il pezzo viene scartato invece di essere mostrato sbagliato.',
+    lab5: '5 · Perché a volte non va', lab5p: 'Gli altoparlanti dei telefoni sono minuscoli e ogni microfono filtra il suono a modo suo; eco e rumore fanno il resto. Così la pagina riprova e tiene i pezzi che ha già: il secondo tentativo di solito serve solo per ciò che mancava.',
+    micOff: 'Microfono spento · tocca Ascolta', listening: 'In ascolto', listen: 'Ascolta', starting: 'Avvio del microfono…', sendingNow: 'Invio…',
+    tapToStart: 'Tocca lo schermo per avviare il microfono', unclear: 'Sentito qualcosa, non chiaro: avvicinati', receivingLong: 'Ricezione · {have}/{count} pezzi',
+    secs: '≈ {s} s di suono', letters: '{n} lettere', morseHint: 'lettere · cifre · . , ? !', morseOnly: 'Il Morse ha solo lettere, cifre e . , ? !',
+    sending: 'Invio', tryAgain: 'Nuovo tentativo {n}/{max}', sent: 'Inviato', heard: 'Sentito', sendAgain: 'Invia di nuovo', copy: 'Copia', copied: 'Copiato', copyFail: 'Impossibile copiare', hearing: 'ascolta…', receiving: 'ricezione…',
+    today: 'Oggi', yesterday: 'Ieri',
+    emptyTitle: 'Parla col suono', empty1: 'Apri questa pagina su due telefoni.', empty2: 'Tocca Ascolta su entrambi.', empty3: 'Scrivi e invia: l’altro telefono lo legge e risponde <b>✓✓</b>.', emptyFlight: 'Modalità aereo? Funziona lo stesso.', emptyLab: 'Guarda come funziona',
+    toastHeard: '✓✓ Sentito', cleared: 'Chat cancellata',
+    errInApp: 'Il browser di questa app non può usare il microfono. Apri la pagina in Safari o Chrome.', errBlockedIos: 'Il microfono è bloccato. Tocca «aA» nella barra degli indirizzi ▸ Impostazioni sito web ▸ Microfono ▸ Consenti, poi Ascolta.', errBlocked: 'Il microfono è bloccato. Consentilo dalla barra degli indirizzi, poi tocca Ascolta.', errBusy: 'Un’altra app sta usando il microfono. Chiudila e tocca Ascolta.', errNoMedia: 'Questo browser non può usare il microfono qui. Prova Safari o Chrome.', errNotFound: 'Nessun microfono trovato.', errSilence: 'Il microfono non sente ancora nulla. Tocca di nuovo Ascolta.',
+    dPieces: '{n} pezzi', dPiece: '1 pezzo', dTries: '{n} tentativi', dSecs: '{s} s', dClarity: 'chiarezza {p}%', dFirst: 'primo tentativo', dLater: 'completato da un tentativo successivo',
+  },
+  pt: {
+    name: 'Português',
+    navHome: 'Início', navProjects: 'Projetos', navGames: 'Jogos', navPrivacy: 'Privacidade', navTerms: 'Termos', navContact: 'Contato', footLabs: 'DFK Labs · Labs — pequenos experimentos, feitos à vista',
+    wfTitle: 'O que o microfone ouve', wfHint: 'Toque em Ouvir — ou envie algo — para ver o som aqui.',
+    wfLegend: 'O tempo corre da direita para a esquerda, o tom de baixo para cima, o volume é a luz. Um chirp é uma escada de tracinhos; o Morse, uma linha só embaixo. Suas próprias mensagens também aparecem aqui enquanto tocam.', deskTip: 'Abra também no celular e faça chirps entre os dois:',
+    note: 'Uma experiência: o texto viaja como som. O alto-falante e o microfone de cada celular são diferentes, então às vezes um pedaço se perde — é para isso que servem as novas tentativas.',
+    earLabel: 'ouvindo', quiet: 'silêncio', placeholder: 'Mensagem', placeholderMorse: 'Mensagem em Morse', sendLabel: 'Enviar por som',
+    labOpen: 'Como funciona', infoOpen: 'Sobre e ajustes',
+    about: 'Texto de um celular para outro por som. Ative o modo avião: continua funcionando. Nada é enviado para lugar nenhum e nenhum áudio é guardado; a conversa fica só neste celular.',
+    receipts: 'Responder com um chirp ao ler uma', receiptsSub: 'O outro celular vê ✓✓ Ouvida', language: 'Idioma', clear: 'Apagar esta conversa', source: 'Código',
+    aboutChirp: '<b>Chirp</b> é rápido e verificado: 16 tons entre 1,0 e 3,4&nbsp;kHz, 4 bits cada, 70&nbsp;ms por tom. Uma mensagem vai em pedaços de 20 bytes, cada um com seu sinal de início e sua verificação: um momento ruim custa um pedaço, e a tentativa seguinte o completa. O celular que lê responde; sem resposta, o seu tenta de novo sozinho.',
+    aboutMorse: '<b>Morse</b> é lento e humano: um tom de 800&nbsp;Hz a 15 palavras por minuto. Uma pessoa consegue copiar de ouvido, e o outro celular também.',
+    labTitle: 'Como funciona', labIntro: 'Digite uma palavra e veja ela virar som, passo a passo.',
+    lab1: '1 · Letras viram bytes', lab1p: 'Cada caractere é guardado como um ou mais números de 0 a 255 (UTF-8).',
+    lab2: '2 · Cada byte dividido ao meio', lab2p: 'Cada byte vira dois pedaços de 4 bits: um número de 0 a 15, escrito 0–F.',
+    lab3: '3 · Cada metade é um tom', lab3p: 'Dezesseis notas, uma por número. Antes da mensagem vêm seis tons que dizem “escute agora”, depois o tamanho, uma etiqueta e uma verificação.',
+    labSlow: '▶ Ouvir devagar', labFast: '▶ Velocidade real',
+    lab4: '4 · Pedaços e verificações', lab4p: 'Uma mensagem longa é cortada em pedaços de 20 bytes. Cada um leva uma verificação (CRC-16): se um tom foi ouvido errado, a conta não fecha e o pedaço é descartado em vez de aparecer errado.',
+    lab5: '5 · Por que às vezes falha', lab5p: 'Os alto-falantes de celular são minúsculos e cada microfone filtra o som do seu jeito; eco e ruído fazem o resto. Por isso a página tenta de novo e guarda os pedaços que já tem: a segunda tentativa costuma precisar só do que faltou na primeira.',
+    micOff: 'Microfone desligado · toque em Ouvir', listening: 'Ouvindo', listen: 'Ouvir', starting: 'Ligando o microfone…', sendingNow: 'Enviando…',
+    tapToStart: 'Toque na tela para ligar o microfone', unclear: 'Ouvi algo, mas não claro — chegue mais perto', receivingLong: 'Recebendo · {have}/{count} pedaços',
+    secs: '≈ {s} s de som', letters: '{n} letras', morseHint: 'letras · números · . , ? !', morseOnly: 'Morse só tem letras, números e . , ? !',
+    sending: 'Enviando', tryAgain: 'Tentando de novo {n}/{max}', sent: 'Enviada', heard: 'Ouvida', sendAgain: 'Reenviar', copy: 'Copiar', copied: 'Copiado', copyFail: 'Não foi possível copiar', hearing: 'ouvindo…', receiving: 'recebendo…',
+    today: 'Hoje', yesterday: 'Ontem',
+    emptyTitle: 'Converse com som', empty1: 'Abra esta página em dois celulares.', empty2: 'Toque em Ouvir nos dois.', empty3: 'Escreva e envie — o outro celular lê e responde <b>✓✓</b>.', emptyFlight: 'Modo avião? Continua funcionando.', emptyLab: 'Veja como funciona',
+    toastHeard: '✓✓ Ouvida', cleared: 'Conversa apagada',
+    errInApp: 'O navegador deste app não pode usar o microfone. Abra a página no Safari ou no Chrome.', errBlockedIos: 'O microfone está bloqueado. Toque em “aA” na barra de endereço ▸ Ajustes do site ▸ Microfone ▸ Permitir, depois em Ouvir.', errBlocked: 'O microfone está bloqueado. Permita pela barra de endereço e toque em Ouvir.', errBusy: 'Outro app está usando o microfone. Feche-o e toque em Ouvir.', errNoMedia: 'Este navegador não pode usar o microfone aqui. Tente o Safari ou o Chrome.', errNotFound: 'Nenhum microfone encontrado.', errSilence: 'O microfone ainda não ouve nada. Toque em Ouvir de novo.',
+    dPieces: '{n} pedaços', dPiece: '1 pedaço', dTries: '{n} tentativas', dSecs: '{s} s', dClarity: 'clareza {p}%', dFirst: 'primeira tentativa', dLater: 'completado por outra tentativa',
+  },
+};
+
+const $ = (id) => document.getElementById(id);
+const wide = matchMedia('(min-width: 980px)');
+const thread = $('thread'), text = $('text'), send = $('send'), listenBtn = $('listen');
+let ctx = null, stream = null, source = null, proc = null, rx = null, mrx = null, wantListen = false, busy = false;
+let mode = 'chirp';
+const bytes = (s) => new TextEncoder().encode(s).length;
+const store = { get(k, d) { try { const v = localStorage.getItem('airgap.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('airgap.' + k, JSON.stringify(v)); } catch (e) { /* private mode */ } } };
+let receipts = store.get('receipts', true);
+
+// ---- language: the browser's own, unless the sheet chose another.
+function pickLang() {
+  const saved = store.get('lang', null);
+  if (saved && STR[saved]) return saved;
+  for (const l of navigator.languages || [navigator.language || 'en']) { const k = String(l).slice(0, 2).toLowerCase(); if (STR[k]) return k; }
+  return 'en';
+}
+let lang = pickLang();
+const t = (k, v) => { let s = (STR[lang] && STR[lang][k]) || STR.en[k] || k; if (v) for (const x in v) s = s.split('{' + x + '}').join(v[x]); return s; };
+const num = (x, d = 1) => x.toLocaleString(lang, { minimumFractionDigits: d, maximumFractionDigits: d });
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-label]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nLabel)); });
+  // dfklabs.com speaks the same six languages: /es, /projects/es, /games/es…
+  document.querySelectorAll('[data-site]').forEach((el) => { const base = el.dataset.site; el.href = 'https://dfklabs.com/' + (base ? base + (lang === 'en' ? '' : '/' + lang) : (lang === 'en' ? '' : lang)); });
+  paintListen(); setStatus(statusKey, statusOn, statusVars); setMode(mode); paintChat(); lab();
+  if (!$('ear').hidden) $('level').textContent = t('quiet');
+}
+const sel = $('lang');
+sel.innerHTML = Object.keys(STR).map((k) => `<option value="${k}">${STR[k].name}</option>`).join('');
+sel.onchange = () => { lang = sel.value; store.set('lang', lang); applyLang(); };
+
+const toast = (m) => { const el = $('toast'); el.textContent = m; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 2200); };
+const buzz = (p) => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* no vibration */ } };
+let statusKey = 'micOff', statusOn = false, statusVars = null;
+function setStatus(key, on, vars) { statusKey = key; statusOn = !!on; statusVars = vars || null; $('statusText').textContent = t(key, vars); $('status').classList.toggle('on', statusOn); }
+let bannerKey = '';
+function banner(key) { bannerKey = key; $('bannerText').textContent = key ? t(key) : ''; $('banner').hidden = !key; }
+$('bannerClose').onclick = () => banner('');
+
+function audio() {
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (ctx.state !== 'running') ctx.resume().catch(() => {});
+  return ctx;
+}
+
+// ---- the chat, kept on this phone
+const ICON = {
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/></svg>',
+  one: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  two: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12.5l4.5 4.5L16 7.5M10.5 15.5l1.5 1.5L21.5 7.5"/></svg>',
+};
+let msgs = store.get('chat', []);
+const save = () => store.set('chat', msgs.slice(-150));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const linkify = (s) => esc(s).replace(/\b(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+const hhmm = (at) => new Date(at).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
+const dayOf = (at) => { const d = new Date(at), now = new Date(); const y = new Date(now); y.setDate(now.getDate() - 1); return d.toDateString() === now.toDateString() ? t('today') : d.toDateString() === y.toDateString() ? t('yesterday') : d.toLocaleDateString(lang, { day: 'numeric', month: 'short' }); };
+const piecesHtml = (pk) => `<div class="pieces" aria-hidden="true">${pk.map((p) => `<i class="${p > 1 ? 'p2' : p ? 'p1' : ''}"></i>`).join('')}</div>`;
+
+function paintChat() {
+  thread.innerHTML = '';
+  if (!msgs.length) {
+    thread.innerHTML = `<div class="empty"><svg class="wave" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round"><path d="M24 23a13 13 0 0 1 0 18"/><path d="M32 17a22 22 0 0 1 0 30"/><path d="M40 11a31 31 0 0 1 0 42"/></g><circle cx="17" cy="32" r="5" fill="#f3f4f6"/></svg><b>${t('emptyTitle')}</b><ol><li>${t('empty1')}</li><li>${t('empty2')}</li><li>${t('empty3')}</li></ol><span>${t('emptyFlight')}</span><button type="button" class="link" id="emptyLab">${t('emptyLab')}</button></div>`;
+    $('emptyLab').onclick = () => { if (wide.matches) { $('sideLab').scrollIntoView({ behavior: 'smooth', block: 'start' }); $('labText').focus({ preventScroll: true }); } else openSheet($('labSheet'), true); };
+    return;
+  }
+  let last = '';
+  for (const m of msgs) { const d = dayOf(m.at); if (d !== last) { thread.insertAdjacentHTML('beforeend', `<div class="day">${d}</div>`); last = d; } thread.append(row(m)); }
+  if (live) thread.append(live.el);
+  thread.scrollTop = thread.scrollHeight;
+}
+function row(m) {
+  const r = document.createElement('div');
+  r.className = 'row ' + m.who; r.dataset.id = m.key;
+  const code = m.mode === 'morse' ? `<span class="code">${esc(morseCode(m.text))}</span>` : '';
+  const pieces = m.who === 'them' && m.pk && m.pk.length > 1 ? piecesHtml(m.pk) : '';
+  r.innerHTML = `<div class="bubble">${linkify(m.text)}${code}<i class="prog"></i></div>${pieces}<div class="meta"></div><div class="details"></div>`;
+  r.querySelector('.bubble').addEventListener('click', (e) => { if (e.target.closest('a')) return; r.classList.toggle('open'); });
+  meta(r, m);
+  return r;
+}
+function meta(r, m) {
+  const el = r.querySelector('.meta'), det = r.querySelector('.details');
+  const tag = `<span class="tag">${m.mode}</span>`;
+  // What happened to this message, for whoever is curious: tap the bubble.
+  const facts = [];
+  if (m.mode === 'chirp') { const n = m.n || Math.max(1, Math.ceil(bytes(m.text) / PACKET)); facts.push(n === 1 ? t('dPiece') : t('dPieces', { n })); }
+  if (m.tries > 1) facts.push(t('dTries', { n: m.tries }));
+  if (m.secs) facts.push(t('dSecs', { s: num(m.secs) }));
+  if (m.cl) facts.push(t('dClarity', { p: Math.round(m.cl * 100) }));
+  const legend = m.who === 'them' && m.pk && m.pk.some((p) => p > 1) ? `<div class="legend"><span><i style="background:var(--blue2)"></i>${t('dFirst')}</span><span><i style="background:var(--ok)"></i>${t('dLater')}</span></div>` : '';
+  det.innerHTML = `<b>${facts.join(' · ')}</b>${legend}`;
+  if (m.who === 'them') { el.innerHTML = `${tag}<span>${hhmm(m.at)}</span><button type="button">${t('copy')}</button>`; el.querySelector('button').onclick = () => copy(m.text); return; }
+  const st = m.state === 'sending' ? `<span class="tick">${ICON.clock}${m.try > 1 ? t('tryAgain', { n: m.try, max: TRIES }) : t('sending')}</span>`
+    : m.state === 'heard' ? `<span class="tick heard">${ICON.two}${t('heard')}</span>`
+    : `<span class="tick">${ICON.one}${t('sent')}</span>`;
+  el.innerHTML = `${tag}<span>${hhmm(m.at)}</span>${st}${m.state === 'sent' ? `<button type="button">${t('sendAgain')}</button>` : ''}`;
+  const again = el.querySelector('button');
+  if (again) again.onclick = () => resend(m);
+}
+async function copy(s) { try { await navigator.clipboard.writeText(s); toast(t('copied')); } catch (e) { toast(t('copyFail')); } }
+function add(m) {
+  msgs.push(m); save();
+  if (msgs.length === 1) paintChat();
+  else {
+    const prev = msgs[msgs.length - 2];
+    if (dayOf(prev.at) !== dayOf(m.at)) thread.insertAdjacentHTML('beforeend', `<div class="day">${dayOf(m.at)}</div>`);
+    const r = row(m);
+    if (live && live.el.parentNode === thread) thread.insertBefore(r, live.el); else thread.append(r);
+  }
+  thread.scrollTop = thread.scrollHeight;
+  return m;
+}
+function update(m) { save(); const r = thread.querySelector(`[data-id="${m.key}"]`); if (r) meta(r, m); }
+const newKey = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+// ---- sound out. One thing plays at a time; the microphone is let go while the
+// phone speaks (so iOS keeps the loudspeaker and the page does not hear itself)
+// and picked up again straight after.
+let queue = Promise.resolve();
+function play(samples, onProgress) {
+  const job = queue.then(() => new Promise((done) => {
+    const a = audio();
+    const resume = wantListen;
+    if (resume) stopListening(true);
+    const buf = a.createBuffer(1, samples.length, a.sampleRate);
+    buf.copyToChannel(samples, 0);
+    const src = a.createBufferSource(); src.buffer = buf; src.connect(a.destination);
+    const secs = samples.length / a.sampleRate, t0 = performance.now();
+    let going = true, shown = 0;
+    // What is played goes through the waterfall too, so a sender sees its own chirp.
+    const tick = () => {
+      const p = Math.min(1, (performance.now() - t0) / 1000 / secs);
+      const at = Math.floor(p * samples.length);
+      while (shown + HOP <= at) { shown += HOP; draw(samples.subarray(Math.max(0, shown - 1024), shown), a.sampleRate, true); }
+      if (onProgress) onProgress(p);
+      if (p < 1 && going) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    src.onended = () => { going = false; if (onProgress) onProgress(1); if (resume) startListening(); done(secs); };
+    src.start();
+  }));
+  queue = job.catch(() => {});
+  return job;
+}
+// A short two-note chime made here, for "your message was heard".
+function chime() {
+  const a = audio(), t0 = a.currentTime;
+  [[880, 0], [1318.5, 0.12]].forEach(([f, d]) => {
+    const o = a.createOscillator(), g = a.createGain();
+    o.frequency.value = f; o.type = 'sine';
+    g.gain.setValueAtTime(0, t0 + d); g.gain.linearRampToValueAtTime(0.18, t0 + d + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.35);
+    o.connect(g); g.connect(a.destination); o.start(t0 + d); o.stop(t0 + d + 0.4);
+  });
+}
+
+// A chirped message waits for its receipt; if none comes it goes again by
+// itself, twice at most, with the same id so the other phone can put the
+// pieces of every try together.
+const TRIES = 3;
+let retryTimer = 0;
+async function transmit(m, attempt = 1) {
+  const a = audio();
+  if (m.mode === 'chirp' && m.pid == null) { m.pid = newId(); save(); }
+  const samples = m.mode === 'morse' ? morseEncode(m.text, a.sampleRate) : encode(m.text, a.sampleRate, m.pid);
+  const r = () => thread.querySelector(`[data-id="${m.key}"] .prog`);
+  m.try = attempt; m.tries = Math.max(m.tries || 1, attempt); m.secs = samples.length / a.sampleRate;
+  if (m.mode === 'chirp') m.n = Math.max(1, Math.ceil(bytes(m.text) / PACKET));
+  update(m);
+  busy = true; refresh(); send.classList.add('busy');
+  await play(samples, (p) => { const el = r(); if (el) el.style.transform = `scaleX(${p})`; });
+  const el = r(); if (el) el.style.transform = 'scaleX(0)';
+  busy = false; send.classList.remove('busy'); refresh();
+  // Pick up the microphone after the first send, so the receipt can be heard.
+  if (!wantListen && m.mode === 'chirp' && !store.get('noAutoListen', false)) startListening();
+  if (m.mode !== 'chirp' || !wantListen) { if (m.state === 'sending') { m.state = 'sent'; m.try = 0; update(m); } return; }
+  // Time for the other phone to finish, wait 0.7 s and chirp its receipt back, plus margin.
+  clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    if (m.state !== 'sending') return;
+    if (attempt < TRIES && !busy) transmit(m, attempt + 1);
+    else { m.state = 'sent'; m.try = 0; update(m); }
+  }, (duration(ackFor(m.text)) + 0.7 + 3) * 1000);
+}
+send.onclick = () => {
+  let msg = text.value.trim();
+  if (!msg || busy) return;
+  if (mode === 'morse') { msg = morseText(msg); if (!msg) { toast(t('morseOnly')); return; } }
+  const m = add({ key: newKey(), who: 'me', text: msg, mode, at: Date.now(), state: 'sending', id: mode === 'chirp' ? idOf(msg) : null });
+  text.value = ''; grow(); refresh();
+  transmit(m);
+};
+function resend(m) { if (busy) return; m.state = 'sending'; m.at = Date.now(); update(m); transmit(m); }
+
+function refresh() {
+  const v = text.value, n = bytes(v);
+  if (mode === 'morse') {
+    const s = morseText(v);
+    $('count').textContent = t('letters', { n: s.length }); $('count').className = '';
+    $('dur').textContent = s ? `${t('secs', { s: num(morseDuration(s)) })} · ${morseCode(s)}` : t('morseHint');
+    send.disabled = busy || !s;
+  } else {
+    $('count').textContent = `${n} / ${MAX_BYTES}`; $('count').className = n > MAX_BYTES ? 'over' : '';
+    $('dur').textContent = v.trim() ? t('secs', { s: num(duration(v)) }) : '';
+    send.disabled = busy || !v.trim() || n > MAX_BYTES;
+  }
+}
+function grow() { text.style.height = 'auto'; text.style.height = Math.min(140, text.scrollHeight) + 'px'; }
+text.addEventListener('input', () => { grow(); refresh(); });
+text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!send.disabled) send.click(); } });
+function setMode(m) { mode = m; store.set('mode', m); $('modeChirp').setAttribute('aria-pressed', String(m === 'chirp')); $('modeMorse').setAttribute('aria-pressed', String(m === 'morse')); text.placeholder = t(m === 'morse' ? 'placeholderMorse' : 'placeholder'); refresh(); }
+$('modeChirp').onclick = () => setMode('chirp');
+$('modeMorse').onclick = () => setMode('morse');
+
+// ---- sound in
+// A message on its way: its pieces light up as they arrive, blue on the first
+// try and green when a later try fills a gap.
+let live = null;   // { kind: 'chirp' | 'morse', id, count, pk: [pass per piece], pass, lastK, cl: [], el }
+function liveRow(kind, label) {
+  const el = document.createElement('div');
+  el.className = 'row them' + (kind === 'morse' ? ' typing' : '');
+  el.innerHTML = `<div class="bubble">${kind === 'morse' ? '' : '···'}</div><div class="pieces"></div><div class="meta"><span class="tag">${kind}</span><span>${label}</span></div>`;
+  if (!msgs.length) thread.innerHTML = '';
+  thread.append(el); thread.scrollTop = thread.scrollHeight;
+  return el;
+}
+function dropLive() { if (live) { live.el.remove(); live = null; } }
+function onPart(p) {
+  if (!live || live.kind !== 'chirp' || live.id !== p.id || live.count !== p.count) {
+    if (live && live.kind === 'chirp' && live.id === p.id && live.count === p.count) { /* same */ }
+    else {
+      const prev = parts.get(p.id);
+      dropLive();
+      live = { kind: 'chirp', id: p.id, count: p.count, pk: prev && prev.count === p.count ? prev.pk : new Array(p.count).fill(0), pass: prev ? prev.pass + 1 : 1, lastK: -1, cl: prev ? prev.cl : [], el: null };
+      if (p.count > 1) live.el = liveRow('chirp', t('receiving'));
+      else live.el = document.createElement('div');
+    }
+  }
+  if (p.k <= live.lastK) live.pass++;           // a new try began
+  live.lastK = p.k;
+  if (!live.pk[p.k]) live.pk[p.k] = live.pass;
+  live.cl.push(p.clarity);
+  parts.set(p.id, { count: p.count, pk: live.pk, pass: live.pass, cl: live.cl });
+  if (p.count > 1) {
+    const box = live.el.querySelector('.pieces');
+    box.innerHTML = live.pk.map((v, i) => `<i class="${v > 1 ? 'p2' : v ? 'p1' : ''}${i === p.k ? ' new' : ''}"></i>`).join('');
+    if (p.have < p.count) setStatus('receivingLong', true, { have: p.have, count: p.count });
+  }
+}
+const parts = new Map();     // what was seen of each message id, across tries
+function heardChirp(msg) {
+  const info = parts.get(msg.id) || { pk: [1], cl: [] };
+  const done = live && live.id === msg.id ? live : null;
+  if (done) { dropLive(); }
+  setStatus('listening', true);
+  const id = ackOf(msg.text);
+  if (id) {
+    parts.delete(msg.id);
+    // A receipt: mark the newest message of ours it names.
+    for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; if (m.who === 'me' && m.id === id) { if (m.state !== 'heard') { m.state = 'heard'; update(m); chime(); buzz([20, 60, 20]); toast(t('toastHeard')); } break; } }
+    return;
+  }
+  // The same message again within half a minute is the sender trying again: no
+  // second bubble, but it gets its receipt, since it evidently did not hear one.
+  const dup = msgs.some((m) => m.who === 'them' && m.text === msg.text && Date.now() - m.at < 30000);
+  if (!dup) {
+    const cl = info.cl.length ? info.cl.reduce((a, b) => a + b, 0) / info.cl.length : 0;
+    add({ key: newKey(), who: 'them', text: msg.text, mode: 'chirp', at: Date.now(), n: info.pk.length, pk: info.pk.slice(), tries: Math.max(1, ...info.pk), cl });
+    buzz(30);
+  }
+  parts.delete(msg.id);
+  if (receipts) setTimeout(() => play(encode(ackFor(msg.text), audio().sampleRate, newId())), 700);
+}
+function morseTyping(s) {
+  if (!live || live.kind !== 'morse') { dropLive(); live = { kind: 'morse', el: liveRow('morse', t('hearing')) }; }
+  live.el.querySelector('.bubble').textContent = s; thread.scrollTop = thread.scrollHeight;
+}
+function heardMorse(s) {
+  if (live && live.kind === 'morse') dropLive();
+  if (msgs.some((m) => m.who === 'them' && m.text === s && Date.now() - m.at < 30000)) return;
+  add({ key: newKey(), who: 'them', text: s, mode: 'morse', at: Date.now() });
+  buzz(30);
+}
+
+const inApp = () => /FBAN|FBAV|Instagram|Line\/|WhatsApp|Telegram|Snapchat|LinkedInApp|GSA\//i.test(navigator.userAgent) || (/iPhone|iPad/.test(navigator.userAgent) && !/Safari\//.test(navigator.userAgent));
+async function getMic() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { const e = new Error('no media'); e.name = 'NoMedia'; throw e; }
+  try {
+    // Echo cancellation and noise suppression would treat the tones as noise.
+    return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  } catch (e) {
+    if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) throw e;
+    return await navigator.mediaDevices.getUserMedia({ audio: true });
+  }
+}
+function micError(e) {
+  wantListen = false; paintListen();
+  const n = (e && e.name) || '', ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  banner(inApp() ? 'errInApp' : n === 'NotAllowedError' || n === 'SecurityError' ? (ios ? 'errBlockedIos' : 'errBlocked')
+    : n === 'NotReadableError' ? 'errBusy' : n === 'NoMedia' ? 'errNoMedia' : n === 'NotFoundError' ? 'errNotFound' : 'errSilence');
+  setStatus('micOff', false);
+}
+
+// The audio engine is always made after the microphone answers: on iOS an
+// engine made before the capture can take the stream and hand back silence.
+let frames = 0, peak = 0, watchdog = 0;
+function wire(a) {
+  source = a.createMediaStreamSource(stream);
+  proc = a.createScriptProcessor(4096, 1, 1);
+  rx = new Receiver(a.sampleRate, { onMessage: heardChirp, onPart, onError: () => setStatus('unclear', true) });
+  mrx = new MorseReceiver(a.sampleRate, { onChar: morseTyping, onText: heardMorse });
+  proc.onaudioprocess = (e) => {
+    frames++;
+    const x = e.inputBuffer.getChannelData(0);
+    for (let i = 0; i < x.length; i += 8) { const v = Math.abs(x[i]); if (v > peak) peak = v; }
+    const c = new Float32Array(x);
+    rx.push(c); mrx.push(c); drawBlock(c, a.sampleRate, true);
+  };
+  source.connect(proc); proc.connect(a.destination);
+}
+async function startListening() {
+  banner('');
+  if (stream) stopListening(true);
+  wantListen = true; paintListen(); setStatus('starting', false);
+  frames = 0; peak = 0;
+  try {
+    stream = await getMic();
+    if (!wantListen) { stream.getTracks().forEach((tr) => tr.stop()); stream = null; return; }
+    if (ctx) { const old = ctx; ctx = null; try { await old.close(); } catch (x) { /* already closed */ } }
+    const a = audio();
+    wire(a);
+    try { await a.resume(); } catch (x) { /* the watchdog asks for a tap */ }
+    setStatus('listening', true);
+    $('ear').hidden = false; $('level').textContent = t('quiet');
+    clearTimeout(watchdog);
+    watchdog = setTimeout(check, 2500);
+  } catch (e) {
+    if (stream) { stream.getTracks().forEach((tr) => tr.stop()); stream = null; }
+    micError(e);
+  }
+}
+// No audio at all after 2.5 s: the engine is asleep, so the next tap restarts
+// everything inside that tap. Audio of exact silence: the stream is dead.
+function check() {
+  if (!wantListen) return;
+  if (!frames) { setStatus('tapToStart', false); document.addEventListener('pointerdown', kick, { once: true, capture: true }); return; }
+  if (peak === 0) { stopListening(false); const e = new Error('silence'); e.name = 'Silence'; micError(e); }
+}
+function kick(ev) { if (ev && ev.target && ev.target.closest && ev.target.closest('#listen')) return; startListening(); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx && wantListen && ctx.state !== 'running') ctx.resume().catch(() => {}); });
+function stopListening(keepWish) {
+  clearTimeout(watchdog);
+  if (proc) { proc.disconnect(); proc.onaudioprocess = null; proc = null; }
+  if (source) { source.disconnect(); source = null; }
+  if (stream) { stream.getTracks().forEach((tr) => tr.stop()); stream = null; }
+  if (live && live.kind === 'morse') dropLive();
+  if (!keepWish) { wantListen = false; $('ear').hidden = true; setStatus('micOff', false); dropLive(); }
+  else setStatus('sendingNow', true);
+  paintListen();
+}
+function paintListen() { listenBtn.classList.toggle('on', wantListen); listenBtn.setAttribute('aria-pressed', String(wantListen)); $('listenLabel').textContent = t(wantListen ? 'listening' : 'listen'); }
+listenBtn.onclick = () => { if (wantListen) { store.set('noAutoListen', true); stopListening(false); } else { store.set('noAutoListen', false); startListening(); } };
+
+// ---- what the microphone hears, as a waterfall: time runs right to left,
+// pitch bottom to top, loudness as light. A chirp is a staircase of short
+// dashes; Morse is one steady line low down.
+const scope = $('scope'), sc = scope.getContext('2d'), big = $('big'), bc = big.getContext('2d');
+const BINS = 96, LO = 600, HI = 3700, HOP = 2048;
+const FREQS = Array.from({ length: BINS }, (_, i) => LO + (HI - LO) * i / (BINS - 1));
+function colour(v) {   // 0..1 → near black → blue → white
+  const a = Math.max(0, Math.min(1, v));
+  const r = Math.round(a < 0.6 ? 10 + a / 0.6 * 27 : 37 + (a - 0.6) / 0.4 * 206);
+  const g = Math.round(a < 0.6 ? 12 + a / 0.6 * 87 : 99 + (a - 0.6) / 0.4 * 145);
+  const b = Math.round(a < 0.6 ? 16 + a / 0.6 * 219 : 235 + (a - 0.6) / 0.4 * 11);
+  return `rgb(${r},${g},${b})`;
+}
+function column(cv, cx, e, colw, step) {
+  const W = cv.width, H = cv.height, n = e.length / step, bh = H / n;
+  cx.drawImage(cv, -colw, 0);
+  for (let i = 0; i < n; i++) {
+    let v = 0; for (let j = 0; j < step; j++) v = Math.max(v, e[i * step + j]);
+    cx.fillStyle = colour(v); cx.fillRect(W - colw, H - (i + 1) * bh, colw, Math.ceil(bh));
+  }
+}
+let drawn = false, ref = 1e-3;
+const HANN = Float32Array.from({ length: 1024 }, (_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / 1023));
+/** One column of the waterfall from the last 1024 samples of x. */
+function draw(x, rate, label = true) {
+  const N = Math.min(1024, x.length), start = x.length - N;
+  // A Hann window keeps a loud tone from smearing light over every other pitch.
+  const e = FREQS.map((f) => { const k = 2 * Math.cos(2 * Math.PI * f / rate); let s1 = 0, s2 = 0; for (let i = 0; i < N; i++) { const s0 = x[start + i] * HANN[i] + k * s1 - s2; s2 = s1; s1 = s0; } return Math.sqrt(Math.max(0, s1 * s1 + s2 * s2 - k * s1 * s2)) / N; });
+  // Loudness against the loudest recent sound, over 45 dB: quiet rooms and loud chirps both read.
+  let best = 0, bi = 0; e.forEach((v, i) => { if (v > best) { best = v; bi = i; } });
+  ref = Math.max(best, ref * 0.985, 2e-4);
+  const lv = e.map((v) => 1 + 20 * Math.log10((v + 1e-9) / ref) / 45);
+  column(scope, sc, lv, 3, 2);
+  if (wide.matches) { column(big, bc, lv, 3, 1); if (!drawn) { drawn = true; $('wfHint').hidden = true; } }
+  // Which of the two it sounds like right now.
+  const what = best > 0.002 ? (Math.abs(FREQS[bi] - MORSE_HZ) < 120 ? 'morse' : 'chirp') : t('quiet');
+  if (label) { $('level').textContent = what; $('wfState').textContent = what; }
+}
+/** Feed a block (mic or our own sound) to the waterfall, one column per HOP samples. */
+function drawBlock(x, rate, label) { for (let end = HOP; end <= x.length; end += HOP) draw(x.subarray(0, end), rate, label); }
+
+// ---- the lab: a word, taken apart, then played slowly enough to follow.
+const labText = $('labText');
+let labPlaying = 0;
+function lab() {
+  const s = labText.value || ' ';
+  const data = [...new TextEncoder().encode(s)];
+  const chars = [...s];
+  // Bytes, grouped under the character they came from.
+  let bi = 0; const byteChips = [];
+  for (const c of chars) { for (const b of new TextEncoder().encode(c)) { byteChips.push(`<span class="chip">${b.toString(16).toUpperCase().padStart(2, '0')}<small>${esc(c === ' ' ? '␣' : c)} · ${b}</small></span>`); bi++; } }
+  $('labBytes').innerHTML = byteChips.join('');
+  $('labNibbles').innerHTML = data.map((b) => [b >> 4, b & 15].map((v) => `<span class="chip">${v.toString(16).toUpperCase()}<small>${v.toString(2).padStart(4, '0')}</small></span>`).join('')).join('');
+  const syms = symbolsFor(s, 0).filter((v) => v >= 0);
+  $('labTones').innerHTML = syms.map((v, i) => `<span class="chip${i < PREAMBLE.length ? ' pre' : ''}" data-i="${i}">${v.toString(16).toUpperCase()}<small>${Math.round(BASE + v * STEP)} Hz</small></span>`).join('');
+}
+labText.addEventListener('input', lab);
+function labPlay(slow) {
+  const s = labText.value || ' ';
+  const syms = symbolsFor(s, 0).filter((v) => v >= 0);
+  const a = audio(), rate = a.sampleRate;
+  const sym = slow ? 0.28 : SYM, gap = slow ? 0.07 : GAP;
+  const samples = slow ? (() => {
+    const n = Math.round(sym * rate), g = Math.round(gap * rate), fade = Math.round(0.01 * rate);
+    const out = new Float32Array(syms.length * (n + g) + Math.round(0.3 * rate)); let o = Math.round(0.1 * rate);
+    for (const v of syms) { const w = 2 * Math.PI * (BASE + v * STEP) / rate; for (let i = 0; i < n; i++) out[o + i] = 0.7 * Math.min(1, i / fade, (n - 1 - i) / fade) * Math.sin(w * i); o += n + g; }
+    return out;
+  })() : encode(s, rate, 0);
+  const lead = 0.1, slot = sym + gap, chips = [...$('labTones').children];
+  const run = ++labPlaying;
+  play(samples, (p) => {
+    if (run !== labPlaying) return;
+    const at = p * samples.length / rate - lead;
+    const i = Math.floor(at / slot);
+    chips.forEach((c, j) => c.classList.toggle('on', j === i && at >= 0 && p < 1));
+  });
+}
+$('labSlow').onclick = () => labPlay(true);
+$('labFast').onclick = () => labPlay(false);
+
+// ---- the sheets
+const sheet = $('sheet'), labSheet = $('labSheet');
+// On a computer the lab lives in the side panel instead of a sheet.
+const labCard = labSheet.querySelector('.lab');
+function layout() { if (wide.matches) { $('sideLab').append(labCard); openSheet(labSheet, false); } else if (labCard.parentNode !== labSheet) labSheet.append(labCard); }
+if (wide.addEventListener) wide.addEventListener('change', layout); else wide.addListener(layout);
+layout();
+$('here').textContent = location.host + location.pathname.replace(/index\.html$/, '');
+function openSheet(el, o) { el.classList.toggle('open', o); el.setAttribute('aria-hidden', String(!o)); }
+$('info').onclick = () => openSheet(sheet, true);
+$('labBtn').onclick = () => openSheet(labSheet, true);
+$('labFromSheet').onclick = () => { openSheet(sheet, false); openSheet(labSheet, true); };
+[sheet, labSheet].forEach((el) => el.addEventListener('click', (e) => { if (e.target === el) openSheet(el, false); }));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { openSheet(sheet, false); openSheet(labSheet, false); } });
+const paintReceipts = () => $('receipts').setAttribute('aria-checked', String(receipts));
+$('receipts').onclick = () => { receipts = !receipts; store.set('receipts', receipts); paintReceipts(); };
+$('clear').onclick = () => { if (!msgs.length) return openSheet(sheet, false); msgs = []; save(); paintChat(); openSheet(sheet, false); toast(t('cleared')); };
+
+// Messages that were still going out when the page closed went out, or did not: say sent.
+msgs.forEach((m) => { if (m.state === 'sending') m.state = 'sent'; m.try = 0; });
+sel.value = lang; mode = store.get('mode', 'chirp');
+applyLang(); paintReceipts(); grow();
+// The service worker that kept an offline copy is retired; remove any left on the device.
+if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {});
+window.__airgap = { started: () => !!rx, lang: () => lang };
+})();
+</script>
+</body>
+</html>

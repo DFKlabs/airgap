@@ -1,0 +1,7 @@
+{
+  "name": "airgap",
+  "private": true,
+  "type": "module",
+  "description": "Text over sound, in the browser, with no server.",
+  "license": "MIT"
+}
